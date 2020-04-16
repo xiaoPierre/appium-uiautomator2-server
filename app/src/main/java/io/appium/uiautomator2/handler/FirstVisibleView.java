@@ -1,8 +1,5 @@
 package io.appium.uiautomator2.handler;
 
-import io.appium.uiautomator2.utils.ElementHelpers;
-import org.json.JSONException;
-
 import java.util.List;
 import java.util.UUID;
 
@@ -34,8 +31,7 @@ public class FirstVisibleView extends SafeRequestHandler {
     }
 
     @Override
-    protected AppiumResponse safeHandle(IHttpRequest request) throws UiObjectNotFoundException,
-            JSONException {
+    protected AppiumResponse safeHandle(IHttpRequest request) throws UiObjectNotFoundException {
         Logger.info("Get first visible element inside provided element");
         String elementId = getElementId(request);
         Session session = AppiumUIA2Driver.getInstance().getSessionOrThrow();
@@ -80,6 +76,6 @@ public class FirstVisibleView extends SafeRequestHandler {
         String id = UUID.randomUUID().toString();
         AndroidElement androidElement = getAndroidElement(id, firstObject, false);
         session.getKnownElements().add(androidElement);
-        return new AppiumResponse(getSessionId(request), ElementHelpers.toJSON(androidElement));
+        return new AppiumResponse(getSessionId(request), androidElement.toModel());
     }
 }

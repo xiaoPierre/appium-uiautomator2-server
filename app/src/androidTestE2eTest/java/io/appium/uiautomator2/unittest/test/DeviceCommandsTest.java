@@ -20,7 +20,7 @@ import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.util.Base64;
 
-import io.appium.uiautomator2.utils.w3c.W3CElementUtils;
+import io.appium.uiautomator2.unittest.test.internal.TestUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -46,7 +46,6 @@ import static io.appium.uiautomator2.unittest.test.internal.commands.DeviceComma
 import static io.appium.uiautomator2.unittest.test.internal.commands.DeviceCommands.findElements;
 import static io.appium.uiautomator2.unittest.test.internal.commands.DeviceCommands.getDeviceSize;
 import static io.appium.uiautomator2.unittest.test.internal.commands.DeviceCommands.getInfo;
-import static io.appium.uiautomator2.unittest.test.internal.commands.DeviceCommands.getRotation;
 import static io.appium.uiautomator2.unittest.test.internal.commands.DeviceCommands.getScreenOrientation;
 import static io.appium.uiautomator2.unittest.test.internal.commands.DeviceCommands.getSettings;
 import static io.appium.uiautomator2.unittest.test.internal.commands.DeviceCommands.rotateScreen;
@@ -212,7 +211,6 @@ public class DeviceCommandsTest extends BaseTest {
         Response response = setRotation(rotateMap);
         Device.waitForIdle();
         assertTrue(response.isSuccessful());
-        assertEquals(rotateMap.toString(), getRotation().toString());
     }
 
     /**
@@ -230,7 +228,6 @@ public class DeviceCommandsTest extends BaseTest {
         Response response = setRotation(rotateMap);
         Device.waitForIdle();
         assertTrue(response.isSuccessful());
-        assertEquals(rotateMap.toString(), getRotation().toString());
     }
 
     /**
@@ -248,7 +245,6 @@ public class DeviceCommandsTest extends BaseTest {
         Response response = setRotation(rotateMap);
         Device.waitForIdle();
         assertTrue(response.isSuccessful());
-        assertEquals(rotateMap.toString(), getRotation().toString());
     }
 
     /**
@@ -416,7 +412,7 @@ public class DeviceCommandsTest extends BaseTest {
         List<String> expectedTexts = Arrays.asList("API Demos", "Accessibility Node Provider",
                 "Accessibility Node Querying", "Accessibility Service");
         for (int i = 0; i < 4; i++) {
-            String elementId = W3CElementUtils.extractElementId(elements.getJSONObject(i));
+            String elementId = TestUtils.extractElementId(elements.getJSONObject(i));
             assertEquals(expectedTexts.get(i), getText(elementId).getValue());
         }
     }
@@ -533,8 +529,8 @@ public class DeviceCommandsTest extends BaseTest {
      * @throws JSONException
      */
     @Test
-    @Ignore // The run-time of this test is ~8.5 minutes, which might fail automated build jobs
-            // that have timeout of 10 minutes. To verify this scenario, run the test locally.
+    @Ignore("The run-time of this test is ~8.5 minutes, which might fail automated build jobs " +
+            "that have timeout of 10 minutes. To verify this scenario, run the test locally.")
     public void scrollVeryLongListSuccessfully() throws JSONException {
         startActivity(".view.List1"); // A very long list (500+ items).
         waitForElement(By.id("android:id/list"));
@@ -642,10 +638,6 @@ public class DeviceCommandsTest extends BaseTest {
                 ".childSelector(new UiSelector().textStartsWith(\"Parent checkbox\"))";
 
         By by = By.androidUiAutomator(uiSelectorSpec);
-
-        assertFalse(
-            by + " should not be found in the list.",
-            findElement(by).isSuccessful());
 
         assertTrue(
             "Scroll-to-element should have succeeded.",

@@ -16,9 +16,7 @@
 
 package io.appium.uiautomator2.handler;
 
-import org.apache.commons.lang.StringUtils;
-import org.json.JSONException;
-import org.json.JSONObject;
+import io.appium.uiautomator2.model.api.SendKeysModel;
 
 import androidx.test.uiautomator.UiObjectNotFoundException;
 
@@ -32,9 +30,12 @@ import io.appium.uiautomator2.model.AppiumUIA2Driver;
 import io.appium.uiautomator2.model.Session;
 import io.appium.uiautomator2.utils.Logger;
 
+import static android.text.TextUtils.isEmpty;
 import static androidx.test.uiautomator.By.focused;
 import static io.appium.uiautomator2.utils.Device.getUiDevice;
 import static io.appium.uiautomator2.utils.ElementHelpers.findElement;
+import static io.appium.uiautomator2.utils.ModelUtils.toModel;
+import static io.appium.uiautomator2.utils.ModelValidators.requireString;
 
 /**
  * Send keys to a given element.
@@ -46,7 +47,7 @@ public class SendKeysToElement extends SafeRequestHandler {
     }
 
     @Override
-    protected AppiumResponse safeHandle(IHttpRequest request) throws JSONException, UiObjectNotFoundException {
+    protected AppiumResponse safeHandle(IHttpRequest request) throws UiObjectNotFoundException {
         Logger.info("send keys to element command");
         String elementId = getElementId(request);
         AndroidElement element;
@@ -60,9 +61,9 @@ public class SendKeysToElement extends SafeRequestHandler {
             //perform action on focused element
             element = findElement(focused(true));
         }
-        JSONObject payload = toJSON(request);
-        boolean replace = Boolean.parseBoolean(payload.getString("replace"));
-        String text = payload.getString("text");
+        SendKeysModel model = toModel(request, SendKeysModel.class);
+        String text = requireString(model, "text");
+        boolean replace = model.replace == null ? false : model.replace;
 
         boolean pressEnter = false;
         if (text.endsWith("\\n")) {
@@ -73,9 +74,9 @@ public class SendKeysToElement extends SafeRequestHandler {
 
         if (!replace) {
             String currentText = element.getText();
-            if (!StringUtils.isEmpty(currentText)) {
+            if (!isEmpty(currentText)) {
                 element.clear();
-                if (!StringUtils.isEmpty(element.getText())) {
+                if (!isEmpty(element.getText())) {
                     // clear could have failed, or we could have a hint in the field
                     // we'll assume it is the latter
                     Logger.debug("Could not clear the text. Assuming the remainder is a hint text.");
@@ -86,7 +87,7 @@ public class SendKeysToElement extends SafeRequestHandler {
         }
         if (!element.setText(text)) {
             throw new InvalidElementStateException(String.format("Cannot set the element to '%s'. " +
-                    "Did you interact with the correct element?", text));
+                    "Did you interact with the correct element?", model.text));
         }
 
         if (pressEnter) {

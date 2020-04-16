@@ -15,7 +15,7 @@
  */
 package io.appium.uiautomator2.unittest.test.internal;
 
-import io.appium.uiautomator2.utils.w3c.W3CElementUtils;
+import androidx.annotation.Nullable;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -38,9 +38,10 @@ public class Response {
         return code == HttpResponseStatus.OK.code();
     }
 
+    @Nullable
     public String getElementId() {
         try {
-            return W3CElementUtils.extractElementId(new JSONObject(body).getJSONObject("value"));
+            return TestUtils.extractElementId(new JSONObject(body).getJSONObject("value"));
         } catch (JSONException e) {
             throw new IllegalArgumentException(String.format(ERR_MSG, "element", body), e);
         }
