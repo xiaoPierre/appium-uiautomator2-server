@@ -18,7 +18,6 @@ import io.appium.uiautomator2.model.settings.Settings;
 import io.appium.uiautomator2.model.settings.WaitForIdleTimeout;
 
 public abstract class Device {
-
     public static UiDevice getUiDevice() {
         return UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
     }

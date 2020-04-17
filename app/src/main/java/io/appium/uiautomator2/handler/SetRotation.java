@@ -16,24 +16,26 @@
 
 package io.appium.uiautomator2.handler;
 
-import io.appium.uiautomator2.model.api.AlertModel;
-
 import io.appium.uiautomator2.handler.request.SafeRequestHandler;
 import io.appium.uiautomator2.http.AppiumResponse;
 import io.appium.uiautomator2.http.IHttpRequest;
-import io.appium.uiautomator2.utils.AlertHelpers;
+import io.appium.uiautomator2.model.ScreenOrientation;
+import io.appium.uiautomator2.model.api.RotationModel;
+import io.appium.uiautomator2.model.internal.CustomUiDevice;
 
 import static io.appium.uiautomator2.utils.ModelUtils.toModel;
 
-public class DismissAlert extends SafeRequestHandler {
-    public DismissAlert(String mappedUri) {
+public class SetRotation extends SafeRequestHandler {
+    public SetRotation(String mappedUri) {
         super(mappedUri);
     }
 
     @Override
     protected AppiumResponse safeHandle(IHttpRequest request) {
-        AlertModel model = toModel(request, AlertModel.class);
-        AlertHelpers.handle(AlertHelpers.AlertAction.DISMISS, model.buttonLabel);
-        return new AppiumResponse(getSessionId(request));
+        RotationModel model = toModel(request, RotationModel.class);
+        // `x` and `y` are ignored. We only care about `z`
+        ScreenOrientation desired = CustomUiDevice.getInstance()
+                .setOrientationSync(ScreenOrientation.ofDegrees(model.z));
+        return new AppiumResponse(getSessionId(request), desired.toString());
     }
 }

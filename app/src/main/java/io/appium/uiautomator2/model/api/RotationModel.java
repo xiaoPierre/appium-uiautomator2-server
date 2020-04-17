@@ -16,11 +16,23 @@
 
 package io.appium.uiautomator2.model.api;
 
+import io.appium.uiautomator2.model.RequiredField;
+
 public class RotationModel extends BaseModel {
-    public String orientation;
     public Integer x;
     public Integer y;
+    @RequiredField
     public Integer z;
 
     public RotationModel() {}
+
+    public RotationModel(
+            Integer x,
+            Integer y,
+            Integer z
+    ) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+    }
 }
