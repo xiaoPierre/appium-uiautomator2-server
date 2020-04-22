@@ -19,7 +19,7 @@ package io.appium.uiautomator2.handler;
 import android.app.Instrumentation;
 import android.util.Base64;
 
-import io.appium.uiautomator2.model.api.ClipboardModel;
+import io.appium.uiautomator2.model.api.GetClipboardModel;
 
 import java.nio.charset.StandardCharsets;
 
@@ -47,8 +47,8 @@ public class GetClipboard extends SafeRequestHandler {
     @Override
     protected AppiumResponse safeHandle(IHttpRequest request) {
         ClipDataType contentType = ClipDataType.PLAINTEXT;
+        GetClipboardModel model = toModel(request, GetClipboardModel.class);
         try {
-            ClipboardModel model = toModel(request, ClipboardModel.class);
             if (model.contentType != null) {
                 contentType = ClipDataType.valueOf(model.contentType.toUpperCase());
             }

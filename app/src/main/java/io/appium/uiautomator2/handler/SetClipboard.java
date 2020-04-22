@@ -19,7 +19,7 @@ package io.appium.uiautomator2.handler;
 import android.app.Instrumentation;
 import android.util.Base64;
 
-import io.appium.uiautomator2.model.api.ClipboardModel;
+import io.appium.uiautomator2.model.api.SetClipboardModel;
 
 import java.nio.charset.StandardCharsets;
 
@@ -46,16 +46,14 @@ public class SetClipboard extends SafeRequestHandler {
 
     @Override
     protected AppiumResponse safeHandle(IHttpRequest request) {
+        SetClipboardModel model = toModel(request, SetClipboardModel.class);
+        String content = fromBase64String(model.content);
         ClipDataType contentType = ClipDataType.PLAINTEXT;
-        ClipboardModel model = toModel(request, ClipboardModel.class);
         try {
-            String content = fromBase64String(model.content);
             if (model.contentType != null) {
                 contentType = ClipDataType.valueOf(model.contentType.toUpperCase());
             }
-            String label = model.label;
-
-            mInstrumentation.runOnMainSync(new AppiumSetClipboardRunnable(contentType, label, content));
+            mInstrumentation.runOnMainSync(new AppiumSetClipboardRunnable(contentType, model.label, content));
         } catch (IllegalArgumentException e) {
             throw new InvalidArgumentException(
                     String.format("Only '%s' content types are supported. '%s' is given instead",
