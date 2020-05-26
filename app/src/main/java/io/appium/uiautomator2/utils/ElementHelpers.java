@@ -22,8 +22,14 @@ import android.os.Bundle;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Toast;
 
-import io.appium.uiautomator2.model.api.ElementModel;
-import io.appium.uiautomator2.model.api.ElementRectModel;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.UiObject;
+import androidx.test.uiautomator.UiObject2;
+import androidx.test.uiautomator.UiObjectNotFoundException;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -32,19 +38,10 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.test.uiautomator.By;
-import androidx.test.uiautomator.BySelector;
-import androidx.test.uiautomator.UiObject;
-import androidx.test.uiautomator.UiObject2;
-import androidx.test.uiautomator.UiObjectNotFoundException;
 import io.appium.uiautomator2.common.exceptions.ElementNotFoundException;
 import io.appium.uiautomator2.common.exceptions.NoSuchAttributeException;
 import io.appium.uiautomator2.common.exceptions.UiAutomator2Exception;
@@ -66,7 +63,6 @@ import static io.appium.uiautomator2.utils.ReflectionUtils.getField;
 import static io.appium.uiautomator2.utils.ReflectionUtils.method;
 import static io.appium.uiautomator2.utils.StringHelpers.charSequenceToString;
 import static io.appium.uiautomator2.utils.StringHelpers.toNonNullString;
-import static io.appium.uiautomator2.utils.StringHelpers.toNullableString;
 
 public abstract class ElementHelpers {
     private static Method findAccessibilityNodeInfo;
@@ -179,13 +175,13 @@ public abstract class ElementHelpers {
     }
 
     @NonNull
-    public static String getText(Object element) throws UiObjectNotFoundException {
+    public static String getText(Object element) {
         //noinspection ConstantConditions
         return getText(element, true);
     }
 
     @Nullable
-    public static String getText(Object element, boolean replaceNull) throws UiObjectNotFoundException {
+    public static String getText(Object element, boolean replaceNull) {
         if (element instanceof UiObject2) {
             /*
              * If the given element is TOAST element, we can't perform any operation on {@link UiObject2} as it
@@ -256,8 +252,8 @@ public abstract class ElementHelpers {
             y2 = yMargin;
         }
 
-        Session session = AppiumUIA2Driver.getInstance().getSession();
-        AccessibilityScrollData lastScrollData = null;
+        Session session = AppiumUIA2Driver.getInstance().getSessionOrThrow();
+        AccessibilityScrollData lastScrollData;
         Logger.debug("Doing a mini swipe-and-back in the scrollable view to generate scroll data");
         swipe(x1, y1, x2, y2);
         lastScrollData = session.getLastScrollData();

@@ -16,13 +16,13 @@
 
 package io.appium.uiautomator2.utils.w3c;
 
-import io.appium.uiautomator2.model.api.touch.w3c.W3CGestureModel;
-import io.appium.uiautomator2.model.api.touch.w3c.W3CItemModel;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import io.appium.uiautomator2.model.api.touch.w3c.W3CGestureModel;
+import io.appium.uiautomator2.model.api.touch.w3c.W3CItemModel;
 
 import static io.appium.uiautomator2.utils.w3c.ActionsConstants.ACTION_ITEM_TYPE_KEY;
 import static io.appium.uiautomator2.utils.w3c.ActionsConstants.ACTION_ITEM_TYPE_POINTER_CANCEL;
@@ -122,21 +122,19 @@ public class ActionsPreprocessor {
                         ACTION_TYPES, ACTION_KEY_TYPE, actionType, actionId));
             }
 
-            if (actionItem.parameters != null) {
-                if (actionItem.parameters.pointerType != null) {
-                    if (!POINTER_TYPES.contains(actionItem.parameters.pointerType)) {
-                        throw new ActionsParseException(String.format(
-                                "Only %s values are supported for %s key. " +
-                                        "'%s' is passed instead for action '%s'",
-                                POINTER_TYPES, PARAMETERS_KEY_POINTER_TYPE,
-                                actionItem.parameters.pointerType, actionId));
-                    }
-                    pointerTypes.add(actionItem.parameters.pointerType);
-                    if (!actionType.equals(ACTION_TYPE_POINTER)) {
-                        throw new ActionsParseException(String.format(
-                                "%s parameter is only supported for action type '%s' in '%s' action",
-                                PARAMETERS_KEY_POINTER_TYPE, ACTION_TYPE_POINTER, actionId));
-                    }
+            if (actionItem.parameters != null && actionItem.parameters.pointerType != null) {
+                if (!POINTER_TYPES.contains(actionItem.parameters.pointerType)) {
+                    throw new ActionsParseException(String.format(
+                            "Only %s values are supported for %s key. " +
+                                    "'%s' is passed instead for action '%s'",
+                            POINTER_TYPES, PARAMETERS_KEY_POINTER_TYPE,
+                            actionItem.parameters.pointerType, actionId));
+                }
+                pointerTypes.add(actionItem.parameters.pointerType);
+                if (!actionType.equals(ACTION_TYPE_POINTER)) {
+                    throw new ActionsParseException(String.format(
+                            "%s parameter is only supported for action type '%s' in '%s' action",
+                            PARAMETERS_KEY_POINTER_TYPE, ACTION_TYPE_POINTER, actionId));
                 }
             }
 
