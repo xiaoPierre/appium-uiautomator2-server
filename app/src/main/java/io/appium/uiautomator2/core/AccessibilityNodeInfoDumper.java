@@ -39,6 +39,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Set;
 import java.util.concurrent.Semaphore;
 
 import io.appium.uiautomator2.common.exceptions.InvalidSelectorException;
@@ -74,15 +75,19 @@ public class AccessibilityNodeInfoDumper {
     private final AccessibilityNodeInfo root;
     @Nullable
     private SparseArray<UiElement<?, ?>> uiElementsMapping = null;
+    @Nullable
+    private final Set<Attribute> includedAttributes;
     private boolean shouldAddDisplayInfo;
     private XmlSerializer serializer;
 
     public AccessibilityNodeInfoDumper() {
-        this(null);
+        this(null, null);
     }
 
-    public AccessibilityNodeInfoDumper(@Nullable AccessibilityNodeInfo root) {
+    public AccessibilityNodeInfoDumper(@Nullable AccessibilityNodeInfo root,
+                                       @Nullable Set<Attribute> includedAttributes) {
         this.root = root;
+        this.includedAttributes = includedAttributes;
     }
 
     private void addDisplayInfo() throws IOException {
@@ -126,7 +131,8 @@ public class AccessibilityNodeInfoDumper {
         serializer.startTag(NAMESPACE, nodeName);
 
         for (Attribute attr : uiElement.attributeKeys()) {
-            if (!attr.isExposableToXml()) {
+            if (!attr.isExposableToXml()
+                    || includedAttributes != null && !includedAttributes.contains(attr)) {
                 continue;
             }
             Object value = uiElement.get(attr);
@@ -217,7 +223,7 @@ public class AccessibilityNodeInfoDumper {
             final NodeInfoList matchedNodes = new NodeInfoList();
             final long timeStarted = SystemClock.uptimeMillis();
             for (org.jdom2.Attribute uiElementId : expr.evaluate(document)) {
-                final UiElement uiElement = uiElementsMapping.get(uiElementId.getIntValue());
+                @SuppressWarnings("rawtypes") final UiElement uiElement = uiElementsMapping.get(uiElementId.getIntValue());
                 if (uiElement == null || uiElement.getNode() == null) {
                     continue;
                 }
