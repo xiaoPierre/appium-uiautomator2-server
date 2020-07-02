@@ -27,6 +27,8 @@ import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import androidx.annotation.Nullable;
 import androidx.test.uiautomator.UiDevice;
 
+import io.appium.uiautomator2.model.settings.Settings;
+import io.appium.uiautomator2.model.settings.SimpleBoundsCalculation;
 import io.appium.uiautomator2.utils.Logger;
 
 import static io.appium.uiautomator2.utils.Device.getUiDevice;
@@ -82,40 +84,58 @@ public class AccessibilityNodeInfoHelpers {
     /**
      * Returns the node's bounds clipped to the size of the display
      *
-     * @return null if node is null, else a Rect containing visible bounds
+     * @return Empty Rect if node is null, else a Rect containing visible bounds
      */
-    @SuppressLint("CheckResult")
-    public static Rect getVisibleBounds(@Nullable AccessibilityNodeInfo node) {
-        return getVisibleBounds(node, 0);
+    public static Rect getBounds(@Nullable AccessibilityNodeInfo node) {
+        Rect rect = new Rect();
+        if (node == null) {
+            return rect;
+        }
+        if (((SimpleBoundsCalculation) Settings.SIMPLE_BOUNDS_CALCULATION.getSetting()).getValue()) {
+            node.getBoundsInScreen(rect);
+            return rect;
+        }
+
+        UiDevice uiDevice = getUiDevice();
+        Rect screenRect = new Rect(0, 0, uiDevice.getDisplayWidth(), uiDevice.getDisplayHeight());
+        return getBounds(node, screenRect, 0);
     }
 
     /**
      * Returns the node's bounds clipped to the size of the display, limited by the MAX_DEPTH
+     * The implementation is borrowed from `getVisibleBounds` method of `UiObject2` class
      *
-     * @return null if node is null, else a Rect containing visible bounds
+     * @return Empty rect if node is null, else a Rect containing visible bounds
      */
     @SuppressLint("CheckResult")
-    private static Rect getVisibleBounds(@Nullable AccessibilityNodeInfo node, int depth) {
+    private static Rect getBounds(@Nullable AccessibilityNodeInfo node, Rect displayRect, int depth) {
+        Rect ret = new Rect();
         if (node == null) {
-            return null;
+            return ret;
         }
 
         // Get the object bounds in screen coordinates
-        Rect ret = new Rect();
         node.getBoundsInScreen(ret);
-        UiDevice uiDevice = getUiDevice();
 
         // Trim any portion of the bounds that are not on the screen
-        Rect screen = new Rect(0, 0, uiDevice.getDisplayWidth(), uiDevice.getDisplayHeight());
-        ret.intersect(screen);
+        ret.intersect(displayRect);
 
-        // Find the visible bounds of our first scrollable ancestor 
-        for (AccessibilityNodeInfo ancestor = node.getParent(); ancestor != null && ++depth < MAX_DEPTH; ancestor = ancestor.getParent()) {
+        // Trim any portion of the bounds that are outside the window
+        Rect window = new Rect();
+        if (node.getWindow() != null) {
+            node.getWindow().getBoundsInScreen(window);
+            ret.intersect(window);
+        }
+
+        // Find the visible bounds of our first scrollable ancestor
+        AccessibilityNodeInfo ancestor;
+        int currentDepth = depth;
+        for (ancestor = node.getParent(); ancestor != null && ++currentDepth < MAX_DEPTH; ancestor = ancestor.getParent()) {
             // If this ancestor is scrollable
             if (ancestor.isScrollable()) {
                 // Trim any portion of the bounds that are hidden by the non-visible portion of our
                 // ancestor
-                Rect ancestorRect = getVisibleBounds(ancestor, depth);
+                Rect ancestorRect = getBounds(ancestor, displayRect, currentDepth);
                 ret.intersect(ancestorRect);
                 break;
             }
