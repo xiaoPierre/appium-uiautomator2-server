@@ -18,7 +18,9 @@ package io.appium.uiautomator2.server;
 
 import androidx.annotation.Nullable;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -281,7 +283,7 @@ public class AppiumServlet implements IHttpServlet {
 
         String id = getParameter(mappedUri, request.uri(), ":id");
         if (id != null) {
-            request.data().put(ELEMENT_ID_KEY, URLDecoder.decode(id));
+            request.data().put(ELEMENT_ID_KEY, id);
         }
         for (int elementIdx = SECOND_ELEMENT_IDX; elementIdx < MAX_ELEMENTS + SECOND_ELEMENT_IDX; ++elementIdx) {
             String elementId = getParameter(mappedUri, request.uri(), ":id" + elementIdx);
@@ -293,19 +295,19 @@ public class AppiumServlet implements IHttpServlet {
 
     @Nullable
     private String getParameter(String configuredUri, String actualUri, String param) {
-        return getParameter(configuredUri, actualUri, param, true);
-    }
-
-    @Nullable
-    private String getParameter(String configuredUri, String actualUri, String param, boolean sectionLengthValidation) {
         String[] configuredSections = configuredUri.split("/");
         String[] currentSections = actualUri.split("/");
-        if (sectionLengthValidation && configuredSections.length != currentSections.length) {
+        if (configuredSections.length != currentSections.length) {
             return null;
         }
         for (int i = 0; i < currentSections.length; i++) {
-            if (configuredSections[i].contains(param)) {
-                return currentSections[i];
+            if (!configuredSections[i].contains(param)) {
+                continue;
+            }
+            try {
+                return URLDecoder.decode(currentSections[i], StandardCharsets.UTF_8.name());
+            } catch (UnsupportedEncodingException e) {
+                throw new IllegalArgumentException(e);
             }
         }
         return null;
