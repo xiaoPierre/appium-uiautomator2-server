@@ -56,6 +56,7 @@ import io.appium.uiautomator2.model.AppiumUIA2Driver;
 import io.appium.uiautomator2.model.Session;
 import io.appium.uiautomator2.model.UiObject2Element;
 
+import static android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_PROGRESS;
 import static io.appium.uiautomator2.model.internal.CustomUiDevice.getInstance;
 import static io.appium.uiautomator2.utils.Device.getAndroidElement;
 import static io.appium.uiautomator2.utils.Device.getUiDevice;
@@ -111,6 +112,18 @@ public abstract class ElementHelpers {
         return result;
     }
 
+    public static boolean canSetProgress(Object element) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            return false;
+        }
+
+        AccessibilityNodeInfo nodeInfo = AccessibilityNodeInfoGetter.fromUiObject(element);
+        if (nodeInfo == null) {
+            throw new ElementNotFoundException();
+        }
+        return nodeInfo.getActionList().contains(ACTION_SET_PROGRESS);
+    }
+
     /**
      * Set text of an element
      *
@@ -127,25 +140,6 @@ public abstract class ElementHelpers {
         }
 
         /*
-         * Execute ACTION_SET_PROGRESS action (introduced in API level 24)
-         * if element has range info and text can be converted to float.
-         * Falling back to element.setText() if something goes wrong.
-         */
-        if (nodeInfo.getRangeInfo() != null && Build.VERSION.SDK_INT >= 24) {
-            Logger.debug("Element has range info.");
-            try {
-                if (AccessibilityNodeInfoHelpers.setProgressValue(nodeInfo,
-                        Float.parseFloat(Objects.requireNonNull(text)))) {
-                    return true;
-                }
-            } catch (NumberFormatException e) {
-                Logger.debug(String.format("Can not convert \"%s\" to float.", text));
-            }
-            Logger.debug("Unable to perform ACTION_SET_PROGRESS action. " +
-                    "Falling back to element.setText()");
-        }
-
-        /*
          * Below Android 7.0 (API level 24) calling setText() throws
          * `IndexOutOfBoundsException: setSpan (x ... x) ends beyond length y`
          * if text length is greater than getMaxTextLength()
@@ -158,6 +152,17 @@ public abstract class ElementHelpers {
         Bundle args = new Bundle();
         args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, textToSend);
         return nodeInfo.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args);
+    }
+
+    public static void setProgress(final Object element, float value) {
+        AccessibilityNodeInfo nodeInfo = AccessibilityNodeInfoGetter.fromUiObject(element);
+        if (nodeInfo == null) {
+            throw new ElementNotFoundException();
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            throw new IllegalStateException("Setting progress is not supported on Android API below 24");
+        }
+        AccessibilityNodeInfoHelpers.setProgressValue(nodeInfo, value);
     }
 
     public static AndroidElement findElement(final BySelector ui2BySelector) throws UiAutomator2Exception {

@@ -172,6 +172,16 @@ public class UiObjectElement extends BaseElement {
     }
 
     @Override
+    public boolean canSetProgress() {
+        return ElementHelpers.canSetProgress(element);
+    }
+
+    @Override
+    public void setProgress(float value) {
+        ElementHelpers.setProgress(element, value);
+    }
+
+    @Override
     public By getBy() {
         return by;
     }

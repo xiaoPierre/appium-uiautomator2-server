@@ -44,21 +44,23 @@ public class SendKeysToElement extends SafeRequestHandler {
         super(mappedUri);
     }
 
-    @Override
-    protected AppiumResponse safeHandle(IHttpRequest request) throws UiObjectNotFoundException {
-        String elementId = getElementId(request);
-        AndroidElement element;
-        if (elementId != null) {
-            Session session = AppiumUIA2Driver.getInstance().getSessionOrThrow();
-            element = session.getKnownElements().getElementFromCache(elementId);
-            if (element == null) {
-                throw new ElementNotFoundException();
-            }
-        } else {
-            //perform action on focused element
-            element = findElement(focused(true));
+    private static boolean setProgress(AndroidElement element, SendKeysModel model) {
+        if (!element.canSetProgress()) {
+            return false;
         }
-        SendKeysModel model = toModel(request, SendKeysModel.class);
+
+        float value;
+        try {
+            value = Float.parseFloat(model.text);
+        } catch (NumberFormatException | NullPointerException e) {
+            throw new IllegalArgumentException(String.format("Cannot convert '%s' to float", model.text));
+        }
+        Logger.info(String.format("Setting the progress value to %s", value));
+        element.setProgress(value);
+        return true;
+    }
+
+    private static void setText(AndroidElement element, SendKeysModel model) throws UiObjectNotFoundException {
         String text = model.text;
         boolean replace = model.replace == null ? false : model.replace;
 
@@ -92,6 +94,29 @@ public class SendKeysToElement extends SafeRequestHandler {
                     ? "Sent Enter key to the device"
                     : "Could not send Enter key to the device");
         }
+    }
+
+    @Override
+    protected AppiumResponse safeHandle(IHttpRequest request) throws UiObjectNotFoundException {
+        String elementId = getElementId(request);
+        AndroidElement element;
+        if (elementId != null) {
+            Session session = AppiumUIA2Driver.getInstance().getSessionOrThrow();
+            element = session.getKnownElements().getElementFromCache(elementId);
+            if (element == null) {
+                throw new ElementNotFoundException();
+            }
+        } else {
+            //perform action on focused element
+            element = findElement(focused(true));
+        }
+        SendKeysModel model = toModel(request, SendKeysModel.class);
+
+        if (setProgress(element, model)) {
+            return new AppiumResponse(getSessionId(request));
+        }
+
+        setText(element, model);
         return new AppiumResponse(getSessionId(request));
     }
 }

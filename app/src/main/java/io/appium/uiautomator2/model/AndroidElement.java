@@ -45,6 +45,10 @@ public interface AndroidElement {
 
     boolean setText(final String text);
 
+    boolean canSetProgress();
+
+    void setProgress(final float value);
+
     String getId();
 
     Rect getBounds() throws UiObjectNotFoundException;
