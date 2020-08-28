@@ -41,7 +41,7 @@ import io.appium.uiautomator2.utils.ElementHelpers;
 import io.appium.uiautomator2.utils.Logger;
 import io.appium.uiautomator2.utils.PositionHelper;
 
-import static io.appium.uiautomator2.core.AccessibilityNodeInfoGetter.fromUiObject;
+import static io.appium.uiautomator2.core.AxNodeInfoExtractor.toAxNodeInfo;
 import static io.appium.uiautomator2.utils.ElementHelpers.generateNoAttributeException;
 import static io.appium.uiautomator2.utils.ReflectionUtils.invoke;
 import static io.appium.uiautomator2.utils.ReflectionUtils.method;
@@ -66,8 +66,8 @@ public class UiObjectElement extends BaseElement {
     }
 
     @Override
-    public void click() throws UiObjectNotFoundException {
-        element.click();
+    public void click() {
+        AccessibilityNodeInfoHelpers.click(toAxNodeInfo(element));
     }
 
     @Override
@@ -139,21 +139,21 @@ public class UiObjectElement extends BaseElement {
                 result = element.isSelected();
                 break;
             case DISPLAYED:
-                result = element.exists() && AccessibilityNodeInfoHelpers.isVisible(fromUiObject(element));
+                result = element.exists() && AccessibilityNodeInfoHelpers.isVisible(toAxNodeInfo(element));
                 break;
             case PASSWORD:
-                result = AccessibilityNodeInfoHelpers.isPassword(fromUiObject(element));
+                result = AccessibilityNodeInfoHelpers.isPassword(toAxNodeInfo(element));
                 break;
             case BOUNDS:
-                result = AccessibilityNodeInfoHelpers.getBounds(fromUiObject(element)).toShortString();
+                result = getBounds().toShortString();
                 break;
             case PACKAGE: {
-                result = AccessibilityNodeInfoHelpers.getPackageName(fromUiObject(element));
+                result = AccessibilityNodeInfoHelpers.getPackageName(toAxNodeInfo(element));
                 break;
             }
             case SELECTION_END:
             case SELECTION_START:
-                Range<Integer> selectionRange = AccessibilityNodeInfoHelpers.getSelectionRange(fromUiObject(element));
+                Range<Integer> selectionRange = AccessibilityNodeInfoHelpers.getSelectionRange(toAxNodeInfo(element));
                 result = selectionRange == null ? null
                         : (dstAttribute == Attribute.SELECTION_END ? selectionRange.getUpper() : selectionRange.getLower());
                 break;
@@ -207,8 +207,8 @@ public class UiObjectElement extends BaseElement {
     }
 
     @Override
-    public Rect getBounds() throws UiObjectNotFoundException {
-        return element.getVisibleBounds();
+    public Rect getBounds() {
+        return AccessibilityNodeInfoHelpers.getBounds(toAxNodeInfo(element));
     }
 
     @Nullable
@@ -220,7 +220,7 @@ public class UiObjectElement extends BaseElement {
              * as an alternative creating UiObject2 with UiObject's AccessibilityNodeInfo
              * and finding the child element on UiObject2.
              */
-            AccessibilityNodeInfo nodeInfo = fromUiObject(element);
+            AccessibilityNodeInfo nodeInfo = toAxNodeInfo(element);
             Object uiObject2 = CustomUiDevice.getInstance().findObject(nodeInfo);
             return (uiObject2 instanceof UiObject2)
                     ? ((UiObject2) uiObject2).findObject((BySelector) selector)
@@ -237,7 +237,7 @@ public class UiObjectElement extends BaseElement {
              * as an alternative creating UiObject2 with UiObject's AccessibilityNodeInfo
              * and finding the child elements on UiObject2.
              */
-            AccessibilityNodeInfo nodeInfo = fromUiObject(element);
+            AccessibilityNodeInfo nodeInfo = toAxNodeInfo(element);
             UiObject2 uiObject2 = (UiObject2) CustomUiDevice.getInstance().findObject(nodeInfo);
             if (uiObject2 == null) {
                 throw new ElementNotFoundException();
@@ -315,7 +315,7 @@ public class UiObjectElement extends BaseElement {
     }
 
     @Override
-    public Point getAbsolutePosition(final Point offset) throws UiObjectNotFoundException {
+    public Point getAbsolutePosition(final Point offset) {
         final Rect bounds = this.getBounds();
         Logger.debug("Element bounds: " + bounds.toShortString());
         return PositionHelper.getAbsolutePosition(new Point(bounds.left, bounds.top), bounds, offset, false);

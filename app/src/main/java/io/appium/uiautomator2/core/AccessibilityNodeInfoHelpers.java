@@ -27,6 +27,9 @@ import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import androidx.annotation.Nullable;
 import androidx.test.uiautomator.UiDevice;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import io.appium.uiautomator2.common.exceptions.InvalidElementStateException;
 import io.appium.uiautomator2.model.settings.Settings;
 import io.appium.uiautomator2.model.settings.SimpleBoundsCalculation;
@@ -82,6 +85,12 @@ public class AccessibilityNodeInfoHelpers {
         return charSequenceToString(nodeInfo.getText(), replaceNull);
     }
 
+    public static boolean click(AccessibilityNodeInfo node) {
+        InteractionController ic = UiAutomatorBridge.getInstance().getInteractionController();
+        Rect bounds = getBounds(node);
+        return ic.clickNoSync(bounds.centerX(), bounds.centerY());
+    }
+
     /**
      * Returns the node's bounds clipped to the size of the display
      *
@@ -129,17 +138,21 @@ public class AccessibilityNodeInfoHelpers {
         }
 
         // Find the visible bounds of our first scrollable ancestor
-        AccessibilityNodeInfo ancestor;
         int currentDepth = depth;
-        for (ancestor = node.getParent(); ancestor != null && ++currentDepth < MAX_DEPTH; ancestor = ancestor.getParent()) {
+        Set<AccessibilityNodeInfo> ancestors = new HashSet<>();
+        AccessibilityNodeInfo ancestor = node.getParent();
+        // An erroneous situation is possible where node parent equals to the node itself
+        while (++currentDepth < MAX_DEPTH && ancestor != null && !ancestors.contains(ancestor)) {
             // If this ancestor is scrollable
             if (ancestor.isScrollable()) {
                 // Trim any portion of the bounds that are hidden by the non-visible portion of our
                 // ancestor
                 Rect ancestorRect = getBounds(ancestor, displayRect, currentDepth);
                 ret.intersect(ancestorRect);
-                break;
+                return ret;
             }
+            ancestors.add(ancestor);
+            ancestor = ancestor.getParent();
         }
 
         return ret;

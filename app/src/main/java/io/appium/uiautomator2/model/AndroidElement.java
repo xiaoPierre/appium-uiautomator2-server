@@ -33,7 +33,7 @@ public interface AndroidElement {
 
     void clear() throws UiObjectNotFoundException;
 
-    void click() throws UiObjectNotFoundException;
+    void click();
 
     boolean longClick() throws UiObjectNotFoundException;
 
@@ -51,7 +51,7 @@ public interface AndroidElement {
 
     String getId();
 
-    Rect getBounds() throws UiObjectNotFoundException;
+    Rect getBounds();
 
     Object getChild(final Object sel) throws UiObjectNotFoundException;
 

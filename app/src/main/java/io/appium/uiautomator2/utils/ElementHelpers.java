@@ -45,7 +45,7 @@ import java.util.UUID;
 import io.appium.uiautomator2.common.exceptions.ElementNotFoundException;
 import io.appium.uiautomator2.common.exceptions.NoSuchAttributeException;
 import io.appium.uiautomator2.common.exceptions.UiAutomator2Exception;
-import io.appium.uiautomator2.core.AccessibilityNodeInfoGetter;
+import io.appium.uiautomator2.core.AxNodeInfoExtractor;
 import io.appium.uiautomator2.core.AccessibilityNodeInfoHelpers;
 import io.appium.uiautomator2.core.EventRegister;
 import io.appium.uiautomator2.core.ReturningRunnable;
@@ -117,10 +117,7 @@ public abstract class ElementHelpers {
             return false;
         }
 
-        AccessibilityNodeInfo nodeInfo = AccessibilityNodeInfoGetter.fromUiObject(element);
-        if (nodeInfo == null) {
-            throw new ElementNotFoundException();
-        }
+        AccessibilityNodeInfo nodeInfo = AxNodeInfoExtractor.toAxNodeInfo(element);
         return nodeInfo.getActionList().contains(ACTION_SET_PROGRESS);
     }
 
@@ -134,10 +131,7 @@ public abstract class ElementHelpers {
     public static boolean setText(final Object element, @Nullable final String text) {
         // Per framework convention, setText(null) means clearing it
         String textToSend = toNonNullString(text);
-        AccessibilityNodeInfo nodeInfo = AccessibilityNodeInfoGetter.fromUiObject(element);
-        if (nodeInfo == null) {
-            throw new ElementNotFoundException();
-        }
+        AccessibilityNodeInfo nodeInfo = AxNodeInfoExtractor.toAxNodeInfo(element);
 
         /*
          * Below Android 7.0 (API level 24) calling setText() throws
@@ -155,10 +149,7 @@ public abstract class ElementHelpers {
     }
 
     public static void setProgress(final Object element, float value) {
-        AccessibilityNodeInfo nodeInfo = AccessibilityNodeInfoGetter.fromUiObject(element);
-        if (nodeInfo == null) {
-            throw new ElementNotFoundException();
-        }
+        AccessibilityNodeInfo nodeInfo = AxNodeInfoExtractor.toAxNodeInfo(element);
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             throw new IllegalStateException("Setting progress is not supported on Android API below 24");
         }
@@ -200,7 +191,7 @@ public abstract class ElementHelpers {
             }
         }
 
-        return AccessibilityNodeInfoHelpers.getText(AccessibilityNodeInfoGetter.fromUiObject(element), replaceNull);
+        return AccessibilityNodeInfoHelpers.getText(AxNodeInfoExtractor.toAxNodeInfo(element), replaceNull);
     }
 
     public static String getContentSize(AndroidElement element) throws UiObjectNotFoundException {
@@ -221,16 +212,7 @@ public abstract class ElementHelpers {
 
     private static Rect getElementBoundsInScreen(Object uiObject) {
         Logger.debug("Getting bounds in screen for an AndroidElement");
-        AccessibilityNodeInfo nodeInfo = null;
-
-        try {
-            nodeInfo = AccessibilityNodeInfoGetter.fromUiObjectDefaultTimeout(uiObject);
-        } catch (UiAutomator2Exception ignored) {
-        }
-
-        if (nodeInfo == null) {
-            throw new UiAutomator2Exception("Could not find accessibility node info for the view");
-        }
+        AccessibilityNodeInfo nodeInfo = AxNodeInfoExtractor.toAxNodeInfo(uiObject);
 
         Rect rect = new Rect();
         nodeInfo.getBoundsInScreen(rect);
@@ -245,6 +227,7 @@ public abstract class ElementHelpers {
         // now scroll a bit back and forth in the view to populate the lastScrollData we need
         int x1 = bounds.centerX();
         int y1 = bounds.centerY() + MINI_SWIPE_PIXELS;
+        //noinspection UnnecessaryLocalVariable
         int x2 = x1;
         int y2 = y1 - (MINI_SWIPE_PIXELS * 2);
         int yMargin = (int) Math.floor(bounds.height() * SWIPE_DEAD_ZONE_PCT);
