@@ -45,6 +45,7 @@ import io.appium.uiautomator2.utils.ReflectionUtils;
 
 import static io.appium.uiautomator2.utils.AXWindowHelpers.getCachedWindowRoots;
 import static io.appium.uiautomator2.utils.Device.getUiDevice;
+import static io.appium.uiautomator2.utils.ReflectionUtils.getConstructor;
 import static io.appium.uiautomator2.utils.ReflectionUtils.getField;
 import static io.appium.uiautomator2.utils.ReflectionUtils.invoke;
 import static io.appium.uiautomator2.utils.ReflectionUtils.method;
@@ -63,26 +64,15 @@ public class CustomUiDevice {
     private final Constructor<?> uiObject2Constructor;
     private final Instrumentation mInstrumentation;
     private final Object API_LEVEL_ACTUAL;
+    private GestureController gestureController;
 
-    /**
-     * UiDevice in android open source project will Support multi-window searches for API level 21,
-     * which has not been implemented in UiAutomatorViewer capture layout hierarchy, to be in sync
-     * with UiAutomatorViewer customizing getWindowRoots() method to skip the multi-window search
-     * based user passed property
-     */
     private CustomUiDevice() {
-        try {
-            this.mInstrumentation = (Instrumentation) getField(UiDevice.class, FIELD_M_INSTRUMENTATION, Device.getUiDevice());
-            this.API_LEVEL_ACTUAL = getField(UiDevice.class, FIELD_API_LEVEL_ACTUAL, Device.getUiDevice());
-            this.ByMatcherClass = ReflectionUtils.getClass("androidx.test.uiautomator.ByMatcher");
-            this.METHOD_FIND_MATCH = method(ByMatcherClass, "findMatch", UiDevice.class, BySelector.class, AccessibilityNodeInfo[].class);
-            this.METHOD_FIND_MATCHES = method(ByMatcherClass, "findMatches", UiDevice.class, BySelector.class, AccessibilityNodeInfo[].class);
-            this.uiObject2Constructor = UiObject2.class.getDeclaredConstructors()[0];
-            this.uiObject2Constructor.setAccessible(true);
-        } catch (Exception e) {
-            Logger.error("Cannot create CustomUiDevice instance", e);
-            throw e;
-        }
+        this.mInstrumentation = (Instrumentation) getField(UiDevice.class, FIELD_M_INSTRUMENTATION, Device.getUiDevice());
+        this.API_LEVEL_ACTUAL = getField(UiDevice.class, FIELD_API_LEVEL_ACTUAL, Device.getUiDevice());
+        this.ByMatcherClass = ReflectionUtils.getClass("androidx.test.uiautomator.ByMatcher");
+        this.METHOD_FIND_MATCH = method(ByMatcherClass, "findMatch", UiDevice.class, BySelector.class, AccessibilityNodeInfo[].class);
+        this.METHOD_FIND_MATCHES = method(ByMatcherClass, "findMatches", UiDevice.class, BySelector.class, AccessibilityNodeInfo[].class);
+        this.uiObject2Constructor = getConstructor(UiObject2.class, UiDevice.class, BySelector.class, AccessibilityNodeInfo.class);
     }
 
     public static synchronized CustomUiDevice getInstance() {
@@ -101,12 +91,18 @@ public class CustomUiDevice {
     }
 
     @Nullable
-    private UiObject2 toUiObject2(Object selector, AccessibilityNodeInfo node)
-            throws IllegalAccessException, InvocationTargetException, InstantiationException {
+    private UiObject2 toUiObject2(Object selector, AccessibilityNodeInfo node) {
         Object[] constructorParams = {getUiDevice(), selector, node};
         long end = SystemClock.uptimeMillis() + UIOBJECT2_CREATION_TIMEOUT;
         while (true) {
-            Object object2 = uiObject2Constructor.newInstance(constructorParams);
+            Object object2;
+            try {
+                object2 = uiObject2Constructor.newInstance(constructorParams);
+            } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
+                String msg = String.format("Cannot create UiObject2 instance with '%s' selector", selector);
+                Logger.error(msg, e);
+                throw new UiAutomator2Exception(msg, e);
+            }
             if (object2 instanceof UiObject2) {
                 return (UiObject2) object2;
             }
@@ -141,13 +137,18 @@ public class CustomUiDevice {
         } else {
             throw new InvalidSelectorException("Selector of type " + selector.getClass().getName() + " not supported");
         }
-        try {
-            return node == null ? null : toUiObject2(selector, node);
-        } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
-            final String msg = "Error while creating UiObject2 object";
-            Logger.error(String.format("%s: %s", msg, e.getMessage()));
-            throw new UiAutomator2Exception(msg, e);
+        return node == null ? null : toUiObject2(selector, node);
+    }
+
+    public synchronized GestureController getGestureController() {
+        if (gestureController == null) {
+            UiObject2 dummyElement = toUiObject2(null, null);
+            if (dummyElement == null) {
+                throw new IllegalStateException("Cannot create dummy UiObject2 instance");
+            }
+            gestureController = new GestureController(getField("mGestureController", dummyElement));
         }
+        return gestureController;
     }
 
     /**
@@ -167,15 +168,9 @@ public class CustomUiDevice {
             throw new InvalidSelectorException("Selector of type " + selector.getClass().getName() + " not supported");
         }
         for (AccessibilityNodeInfo node : axNodesList) {
-            try {
-                UiObject2 uiObject2 = toUiObject2(toSelector(node), node);
-                if (uiObject2 != null) {
-                    ret.add(uiObject2);
-                }
-            } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
-                final String msg = "Error while creating UiObject2 object";
-                Logger.error(String.format("%s: %s", msg, e.getMessage()));
-                throw new UiAutomator2Exception(msg, e);
+            UiObject2 uiObject2 = toUiObject2(toSelector(node), node);
+            if (uiObject2 != null) {
+                ret.add(uiObject2);
             }
         }
 
