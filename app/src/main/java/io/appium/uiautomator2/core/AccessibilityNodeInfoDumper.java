@@ -60,8 +60,6 @@ import static io.appium.uiautomator2.utils.XMLHelpers.toSafeString;
 import static net.gcardone.junidecode.Junidecode.unidecode;
 
 public class AccessibilityNodeInfoDumper {
-    // https://github.com/appium/appium/issues/10204
-    private static final int MAX_DEPTH = 70;
     private static final String UI_ELEMENT_INDEX = "uiElementIndex";
     private static final String NON_XML_CHAR_REPLACEMENT = "?";
     private static final String NAMESPACE = "";
@@ -73,8 +71,7 @@ public class AccessibilityNodeInfoDumper {
 
     @Nullable
     private final AccessibilityNodeInfo root;
-    @Nullable
-    private SparseArray<UiElement<?, ?>> uiElementsMapping = null;
+    private final SparseArray<UiElement<?, ?>> uiElementsMapping = new SparseArray<>();
     @Nullable
     private final Set<Attribute> includedAttributes;
     private boolean shouldAddDisplayInfo;
@@ -125,14 +122,13 @@ public class AccessibilityNodeInfoDumper {
         return fixedName;
     }
 
-    private void serializeUiElement(UiElement<?, ?> uiElement, final int depth) throws IOException {
+    private void serializeUiElement(UiElement<?, ?> uiElement, boolean isIndexed) throws IOException {
         final String className = uiElement.getClassName();
         final String nodeName = toXmlNodeName(className);
         serializer.startTag(NAMESPACE, nodeName);
 
         for (Attribute attr : uiElement.attributeKeys()) {
-            if (!attr.isExposableToXml()
-                    || includedAttributes != null && !includedAttributes.contains(attr)) {
+            if (!attr.isExposableToXml()) {
                 continue;
             }
             Object value = uiElement.get(attr);
@@ -147,24 +143,19 @@ public class AccessibilityNodeInfoDumper {
             shouldAddDisplayInfo = false;
         }
 
-        if (uiElementsMapping != null) {
-            final int uiElementIndex = uiElementsMapping.size();
-            uiElementsMapping.put(uiElementIndex, uiElement);
+        final int uiElementIndex = uiElementsMapping.size();
+        uiElementsMapping.put(uiElementIndex, uiElement);
+        if (isIndexed) {
             serializer.attribute(NAMESPACE, UI_ELEMENT_INDEX, Integer.toString(uiElementIndex));
         }
 
-        if (depth >= MAX_DEPTH) {
-            Logger.error(String.format("The xml tree dump has reached its maximum depth of %s at " +
-                    "'%s'. The recursion is stopped to avoid StackOverflowError", MAX_DEPTH, className));
-        } else {
-            for (UiElement<?, ?> child : uiElement.getChildren()) {
-                serializeUiElement(child, depth + 1);
-            }
+        for (UiElement<?, ?> child : uiElement.getChildren()) {
+            serializeUiElement(child, isIndexed);
         }
         serializer.endTag(NAMESPACE, nodeName);
     }
 
-    private InputStream toStream() throws IOException {
+    private InputStream toStream(boolean isIndexed) throws IOException {
         final long startTime = SystemClock.uptimeMillis();
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             serializer = Xml.newSerializer();
@@ -172,19 +163,15 @@ public class AccessibilityNodeInfoDumper {
             serializer.setOutput(outputStream, XML_ENCODING);
             serializer.startDocument(XML_ENCODING, true);
             serializer.setFeature("http://xmlpull.org/v1/doc/features.html#indent-output", true);
-            final UiElement<?, ?> xpathRoot = root == null
-                    ? UiElementSnapshot.take(getCachedWindowRoots(), NotificationListener.getInstance().getToastMessage())
-                    : UiElementSnapshot.take(root);
-            serializeUiElement(xpathRoot, 0);
+            final UiElement<?, ?> uiRootElement = root == null
+                    ? UiElementSnapshot.take(getCachedWindowRoots(), NotificationListener.getInstance().getToastMessage(), includedAttributes)
+                    : UiElementSnapshot.take(root, includedAttributes);
+            serializeUiElement(uiRootElement, isIndexed);
             serializer.endDocument();
             Logger.debug(String.format("The source XML tree (%s bytes) has been fetched in %sms",
                     outputStream.size(), SystemClock.uptimeMillis() - startTime));
             return new ByteArrayInputStream(outputStream.toByteArray());
         }
-    }
-
-    private void performCleanup() {
-        uiElementsMapping = null;
     }
 
     public String dumpToXml() {
@@ -193,12 +180,12 @@ public class AccessibilityNodeInfoDumper {
         } catch (InterruptedException e) {
             throw new UiAutomator2Exception(e);
         }
-        try (InputStream xmlStream = toStream()) {
+        try (InputStream xmlStream = toStream(false)) {
             return IOUtils.toString(xmlStream, XML_ENCODING);
         } catch (IOException e) {
             throw new UiAutomator2Exception(e);
         } finally {
-            performCleanup();
+            uiElementsMapping.clear();
             RESOURCES_GUARD.release();
         }
     }
@@ -215,8 +202,7 @@ public class AccessibilityNodeInfoDumper {
         } catch (InterruptedException e) {
             throw new UiAutomator2Exception(e);
         }
-        uiElementsMapping = new SparseArray<>();
-        try (InputStream xmlStream = toStream()) {
+        try (InputStream xmlStream = toStream(true)) {
             final Document document = SAX_BUILDER.build(xmlStream);
             final XPathExpression<org.jdom2.Attribute> expr = XPATH
                     .compile(String.format("(%s)/@%s", xpathSelector, UI_ELEMENT_INDEX), Filters.attribute());
@@ -243,7 +229,7 @@ public class AccessibilityNodeInfoDumper {
         } catch (Exception e) {
             throw new UiAutomator2Exception(e);
         } finally {
-            performCleanup();
+            uiElementsMapping.clear();
             RESOURCES_GUARD.release();
         }
     }

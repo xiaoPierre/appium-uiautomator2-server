@@ -21,11 +21,15 @@ import android.util.Range;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import io.appium.uiautomator2.core.AxNodeInfoHelper;
 import io.appium.uiautomator2.utils.Attribute;
@@ -38,6 +42,7 @@ import static io.appium.uiautomator2.utils.StringHelpers.charSequenceToNullableS
 
 /**
  * A UiElement that gets attributes via the Accessibility API.
+ * https://android.googlesource.com/platform/frameworks/testing/+/476328047e3f82d6d9be8ab23f502a670613f94c/uiautomator/library/src/com/android/uiautomator/core/AccessibilityNodeInfoDumper.java
  */
 @TargetApi(18)
 public class UiElementSnapshot extends UiElement<AccessibilityNodeInfo, UiElementSnapshot> {
@@ -45,118 +50,175 @@ public class UiElementSnapshot extends UiElement<AccessibilityNodeInfo, UiElemen
     // https://github.com/appium/appium/issues/12545
     private final static int DEFAULT_MAX_DEPTH = 70;
 
+    private final Set<Attribute> includedAttributes = new HashSet<>();
     private final Map<Attribute, Object> attributes;
     private final List<UiElementSnapshot> children;
     private int depth = 0;
     private int maxDepth = DEFAULT_MAX_DEPTH;
 
-    /**
-     * A snapshot of all attributes is taken at construction. The attributes of a
-     * {@code UiAutomationElement} instance are immutable. If the underlying
-     * {@link AccessibilityNodeInfo} is updated, a new {@code UiAutomationElement}
-     * instance will be created in
-     */
-    private UiElementSnapshot(AccessibilityNodeInfo node, int index, int maxDepth) {
+    private UiElementSnapshot(AccessibilityNodeInfo node, int index, int maxDepth,
+                              @Nullable Set<Attribute> includedAttributes) {
         super(checkNotNull(node));
         this.maxDepth = maxDepth;
-
-        Map<Attribute, Object> attributes = new LinkedHashMap<>();
-        // The same sequence will be used for node attributes in xml page source
-        setAttribute(attributes, Attribute.INDEX, index);
-        setAttribute(attributes, Attribute.PACKAGE, charSequenceToNullableString(node.getPackageName()));
-        setAttribute(attributes, Attribute.CLASS, charSequenceToNullableString(node.getClassName()));
-        setAttribute(attributes, Attribute.TEXT, AxNodeInfoHelper.getText(node, true));
-        setAttribute(attributes, Attribute.ORIGINAL_TEXT, AxNodeInfoHelper.getText(node, false));
-        setAttribute(attributes, Attribute.CONTENT_DESC, charSequenceToNullableString(node.getContentDescription()));
-        setAttribute(attributes, Attribute.RESOURCE_ID, node.getViewIdResourceName());
-        setAttribute(attributes, Attribute.CHECKABLE, node.isCheckable());
-        setAttribute(attributes, Attribute.CHECKED, node.isChecked());
-        setAttribute(attributes, Attribute.CLICKABLE, node.isClickable());
-        setAttribute(attributes, Attribute.ENABLED, node.isEnabled());
-        setAttribute(attributes, Attribute.FOCUSABLE, node.isFocusable());
-        setAttribute(attributes, Attribute.FOCUSED, node.isFocused());
-        setAttribute(attributes, Attribute.LONG_CLICKABLE, node.isLongClickable());
-        setAttribute(attributes, Attribute.PASSWORD, node.isPassword());
-        setAttribute(attributes, Attribute.SCROLLABLE, node.isScrollable());
-        Range<Integer> selectionRange = AxNodeInfoHelper.getSelectionRange(node);
-        if (selectionRange != null) {
-            attributes.put(Attribute.SELECTION_START, selectionRange.getLower());
-            attributes.put(Attribute.SELECTION_END, selectionRange.getUpper());
+        if (includedAttributes != null) {
+            // Class name attribute should always be there
+            this.includedAttributes.add(Attribute.CLASS);
+            this.includedAttributes.addAll(includedAttributes);
         }
-        setAttribute(attributes, Attribute.SELECTED, node.isSelected());
-        setAttribute(attributes, Attribute.BOUNDS, AxNodeInfoHelper.getBounds(node).toShortString());
-        setAttribute(attributes, Attribute.DISPLAYED, node.isVisibleToUser());
-        // Skip CONTENT_SIZE as it is quite expensive to compute it for each element
-        this.attributes = Collections.unmodifiableMap(attributes);
+        this.attributes = collectAttributes(node, index);
         this.children = buildChildren(node);
     }
 
-    private UiElementSnapshot(AccessibilityNodeInfo node, int index) {
-        this(node, index, DEFAULT_MAX_DEPTH);
+    private UiElementSnapshot(AccessibilityNodeInfo node, int index, @Nullable Set<Attribute> includedAttributes) {
+        this(node, index, DEFAULT_MAX_DEPTH, includedAttributes);
     }
 
-    private UiElementSnapshot(String hierarchyClassName, AccessibilityNodeInfo[] childNodes, int index) {
+    private UiElementSnapshot(String hierarchyClassName, AccessibilityNodeInfo[] childNodes, int index,
+                              @Nullable Set<Attribute> includedAttributes) {
         super(null);
         Map<Attribute, Object> attribs = new LinkedHashMap<>();
         setAttribute(attribs, Attribute.INDEX, index);
         setAttribute(attribs, Attribute.CLASS, hierarchyClassName);
         this.attributes = Collections.unmodifiableMap(attribs);
-        List<UiElementSnapshot> children = new ArrayList<>();
-        for (AccessibilityNodeInfo childNode : childNodes) {
-            children.add(new UiElementSnapshot(childNode, children.size()));
+        List<UiElementSnapshot> children = new ArrayList<>(childNodes.length);
+        for (int childNodeIdx = 0; childNodeIdx < childNodes.length; ++childNodeIdx) {
+            children.add(new UiElementSnapshot(childNodes[childNodeIdx], childNodeIdx, includedAttributes));
         }
         this.children = children;
     }
 
-    private static void setAttribute(Map<Attribute, Object> attribs, Attribute key, Object value) {
+    private boolean shouldIncludeAttribute(Attribute key) {
+        return includedAttributes.isEmpty() || includedAttributes.contains(key);
+    }
+
+    private void setAttribute(Map<Attribute, Object> attribs, Attribute key, Object value) {
         if (value != null) {
             attribs.put(key, value);
         }
+    }
+
+    private Map<Attribute, Object> collectAttributes(AccessibilityNodeInfo node, int index) {
+        Map<Attribute, Object> result = new LinkedHashMap<>();
+        // The same sequence will be used for node attributes in xml page source
+        if (shouldIncludeAttribute(Attribute.INDEX)) {
+            setAttribute(result, Attribute.INDEX, index);
+        }
+        if (shouldIncludeAttribute(Attribute.PACKAGE)) {
+            setAttribute(result, Attribute.PACKAGE, charSequenceToNullableString(node.getPackageName()));
+        }
+        if (shouldIncludeAttribute(Attribute.CLASS)) {
+            setAttribute(result, Attribute.CLASS, charSequenceToNullableString(node.getClassName()));
+        }
+        if (shouldIncludeAttribute(Attribute.TEXT)) {
+            setAttribute(result, Attribute.TEXT, AxNodeInfoHelper.getText(node, true));
+        }
+        if (shouldIncludeAttribute(Attribute.ORIGINAL_TEXT)) {
+            setAttribute(result, Attribute.ORIGINAL_TEXT, AxNodeInfoHelper.getText(node, false));
+        }
+        if (shouldIncludeAttribute(Attribute.CONTENT_DESC)) {
+            setAttribute(result, Attribute.CONTENT_DESC,
+                    charSequenceToNullableString(node.getContentDescription()));
+        }
+        if (shouldIncludeAttribute(Attribute.RESOURCE_ID)) {
+            setAttribute(result, Attribute.RESOURCE_ID, node.getViewIdResourceName());
+        }
+        if (shouldIncludeAttribute(Attribute.CHECKABLE)) {
+            setAttribute(result, Attribute.CHECKABLE, node.isCheckable());
+        }
+        if (shouldIncludeAttribute(Attribute.CHECKED)) {
+            setAttribute(result, Attribute.CHECKED, node.isChecked());
+        }
+        if (shouldIncludeAttribute(Attribute.CLICKABLE)) {
+            setAttribute(result, Attribute.CLICKABLE, node.isClickable());
+        }
+        if (shouldIncludeAttribute(Attribute.ENABLED)) {
+            setAttribute(result, Attribute.ENABLED, node.isEnabled());
+        }
+        if (shouldIncludeAttribute(Attribute.FOCUSABLE)) {
+            setAttribute(result, Attribute.FOCUSABLE, node.isFocusable());
+        }
+        if (shouldIncludeAttribute(Attribute.FOCUSED)) {
+            setAttribute(result, Attribute.FOCUSED, node.isFocused());
+        }
+        if (shouldIncludeAttribute(Attribute.LONG_CLICKABLE)) {
+            setAttribute(result, Attribute.LONG_CLICKABLE, node.isLongClickable());
+        }
+        if (shouldIncludeAttribute(Attribute.PASSWORD)) {
+            setAttribute(result, Attribute.PASSWORD, node.isPassword());
+        }
+        if (shouldIncludeAttribute(Attribute.SCROLLABLE)) {
+            setAttribute(result, Attribute.SCROLLABLE, node.isScrollable());
+        }
+        if (shouldIncludeAttribute(Attribute.SELECTION_START)
+                || shouldIncludeAttribute(Attribute.SELECTION_END)) {
+            Range<Integer> selectionRange = AxNodeInfoHelper.getSelectionRange(node);
+            if (selectionRange != null) {
+                if (shouldIncludeAttribute(Attribute.SELECTION_START)) {
+                    result.put(Attribute.SELECTION_START, selectionRange.getLower());
+                }
+                if (shouldIncludeAttribute(Attribute.SELECTION_END)) {
+                    result.put(Attribute.SELECTION_END, selectionRange.getUpper());
+                }
+            }
+        }
+        if (shouldIncludeAttribute(Attribute.SELECTED)) {
+            setAttribute(result, Attribute.SELECTED, node.isSelected());
+        }
+        if (shouldIncludeAttribute(Attribute.BOUNDS)) {
+            setAttribute(result, Attribute.BOUNDS, AxNodeInfoHelper.getBounds(node).toShortString());
+        }
+        if (shouldIncludeAttribute(Attribute.DISPLAYED)) {
+            setAttribute(result, Attribute.DISPLAYED, node.isVisibleToUser());
+        }
+        // Skip CONTENT_SIZE as it is quite expensive to compute it for each element
+        return Collections.unmodifiableMap(result);
     }
 
     private int getDepth() {
         return this.depth;
     }
 
-    private void setDepth(int depth) {
+    private UiElementSnapshot setDepth(int depth) {
         this.depth = depth;
+        return this;
     }
 
     public int getMaxDepth() {
         return this.maxDepth;
     }
 
-    public static UiElementSnapshot take(AccessibilityNodeInfo[] roots, List<CharSequence> toastMSGs) {
-        UiElementSnapshot root = new UiElementSnapshot(ROOT_NODE_NAME, roots, 0);
+    public static UiElementSnapshot take(AccessibilityNodeInfo[] roots, List<CharSequence> toastMSGs,
+                                         @Nullable Set<Attribute> includedAttributes) {
+        UiElementSnapshot uiRoot = new UiElementSnapshot(ROOT_NODE_NAME, roots, 0, includedAttributes);
         for (CharSequence toastMSG : toastMSGs) {
-            Logger.debug(String.format("Adding toast message to root: %s", toastMSG));
-            root.addToastMsgToRoot(toastMSG);
+            Logger.info(String.format("Adding toast message to root: %s", toastMSG));
+            uiRoot.addToastMsg(toastMSG);
         }
-        return root;
+        return uiRoot;
     }
 
-    public static UiElementSnapshot take(AccessibilityNodeInfo rootElement) {
-        return new UiElementSnapshot(rootElement, 0);
+    public static UiElementSnapshot take(AccessibilityNodeInfo rootElement,
+                                         @Nullable Set<Attribute> includedAttributes) {
+        return new UiElementSnapshot(rootElement, 0, includedAttributes);
     }
 
     public static UiElementSnapshot take(AccessibilityNodeInfo rootElement, int maxDepth) {
-        return new UiElementSnapshot(rootElement, 0, maxDepth);
+        return new UiElementSnapshot(rootElement, 0, maxDepth, null);
     }
 
-    private static UiElementSnapshot makeNode(AccessibilityNodeInfo rootElement, int index, int depth) {
-        UiElementSnapshot snapshot = new UiElementSnapshot(rootElement, index);
-        snapshot.setDepth(depth);
-        return snapshot;
+    private static UiElementSnapshot take(AccessibilityNodeInfo rootElement, int index, int depth,
+                                          @Nullable Set<Attribute> includedAttributes) {
+        return new UiElementSnapshot(rootElement, index, includedAttributes).setDepth(depth);
     }
 
-    private void addToastMsgToRoot(CharSequence tokenMSG) {
+    private void addToastMsg(CharSequence tokenMSG) {
         AccessibilityNodeInfo node = AccessibilityNodeInfo.obtain();
         node.setText(tokenMSG);
         node.setClassName(Toast.class.getName());
         node.setPackageName("com.android.settings");
+        node.setVisibleToUser(true);
         setField("mSealed", true, node);
-
-        this.children.add(new UiElementSnapshot(node, this.children.size()));
+        this.children.add(new UiElementSnapshot(node, this.children.size(), 0, null));
     }
 
     private List<UiElementSnapshot> buildChildren(AccessibilityNodeInfo node) {
@@ -170,15 +232,18 @@ public class UiElementSnapshot extends UiElement<AccessibilityNodeInfo, UiElemen
         }
 
         List<UiElementSnapshot> children = new ArrayList<>(childCount);
-        boolean areInvisibleElementsAllowed = AppiumUIA2Driver
-                .getInstance()
-                .getSessionOrThrow()
+        boolean areInvisibleElementsAllowed = AppiumUIA2Driver.getInstance().getSessionOrThrow()
                 .getCapability(ALLOW_INVISIBLE_ELEMENTS.toString(), false);
-        for (int i = 0; i < childCount; i++) {
-            AccessibilityNodeInfo child = node.getChild(i);
-            //Ignore if element is not visible on the screen
-            if (child != null && (child.isVisibleToUser() || areInvisibleElementsAllowed)) {
-                children.add(makeNode(child, i, getDepth() + 1));
+        for (int index = 0; index < childCount; ++index) {
+            AccessibilityNodeInfo child = node.getChild(index);
+            if (child == null) {
+                Logger.info(String.format("The child node #%s of %s is null", index, node));
+                continue;
+            }
+
+            // Ignore if the element is not visible on the screen
+            if (areInvisibleElementsAllowed || child.isVisibleToUser()) {
+                children.add(take(child, index, getDepth() + 1, includedAttributes));
             }
         }
         return children;

@@ -107,8 +107,10 @@ public class ElementLocationHelpers {
         // We are trying to be smart here and only include the actually queried
         // attributes into the source XML document. This allows to improve the performance a lot
         // while building this document.
-        return new AccessibilityNodeInfoDumper(root, extractQueriedAttributes(expression))
-                .findNodes(expression, multiple);
+        Set<Attribute> includedAttributes = extractQueriedAttributes(expression);
+        Logger.info(String.format("The following attributes will be included to the page source: %s",
+                includedAttributes == null ? "all" : includedAttributes));
+        return new AccessibilityNodeInfoDumper(root, includedAttributes).findNodes(expression, multiple);
     }
 
     @Nullable
