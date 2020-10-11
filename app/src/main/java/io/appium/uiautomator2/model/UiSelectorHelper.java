@@ -18,48 +18,51 @@ package io.appium.uiautomator2.model;
 
 import android.view.accessibility.AccessibilityNodeInfo;
 
+import androidx.annotation.Nullable;
 import androidx.test.uiautomator.UiSelector;
+
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 import io.appium.uiautomator2.utils.Attribute;
 
-public class CustomUiSelector {
+public class UiSelectorHelper {
+    private static final Attribute[] MATCHING_ATTRIBUTES = new Attribute[]{
+            Attribute.PACKAGE, Attribute.CLASS,
+            // For proper selector matching it is important to not replace nulls with empty strings
+            Attribute.ORIGINAL_TEXT,
+            Attribute.CONTENT_DESC, Attribute.RESOURCE_ID, Attribute.CHECKABLE,
+            Attribute.CHECKED, Attribute.CLICKABLE, Attribute.ENABLED, Attribute.FOCUSABLE,
+            Attribute.FOCUSED, Attribute.LONG_CLICKABLE, Attribute.PASSWORD, Attribute.SCROLLABLE,
+            Attribute.SELECTED, Attribute.INDEX
+    };
+    private static final Set<Attribute> MATCHING_ATTRIBUTES_SET = new HashSet<>(
+            Arrays.asList(MATCHING_ATTRIBUTES));
+
     private UiSelector selector;
 
-    CustomUiSelector(UiSelector selector) {
+    private UiSelectorHelper(UiSelector selector, UiElementSnapshot uiElementSnapshot) {
         this.selector = selector;
+        for (Attribute attr : MATCHING_ATTRIBUTES) {
+            addSearchCriteria(attr, uiElementSnapshot.get(attr));
+        }
     }
 
     /**
      * @param node the source accessibility node
      * @return UiSelector object, based on UiAutomationElement attributes
      */
-    public UiSelector getUiSelector(AccessibilityNodeInfo node) {
-        UiElementSnapshot uiElementSnapshot = UiElementSnapshot.take(node, 0);
-        put(Attribute.PACKAGE, uiElementSnapshot.getPackageName());
-        put(Attribute.CLASS, uiElementSnapshot.getClassName());
-        // For proper selector matching it is important to not replace nulls with empty strings
-        put(Attribute.TEXT, uiElementSnapshot.getOriginalText());
-        put(Attribute.CONTENT_DESC, uiElementSnapshot.getContentDescription());
-        put(Attribute.RESOURCE_ID, uiElementSnapshot.getResourceId());
-        put(Attribute.CHECKABLE, uiElementSnapshot.isCheckable());
-        put(Attribute.CHECKED, uiElementSnapshot.isChecked());
-        put(Attribute.CLICKABLE, uiElementSnapshot.isClickable());
-        put(Attribute.ENABLED, uiElementSnapshot.isEnabled());
-        put(Attribute.FOCUSABLE, uiElementSnapshot.isFocusable());
-        put(Attribute.FOCUSED, uiElementSnapshot.isFocused());
-        put(Attribute.LONG_CLICKABLE, uiElementSnapshot.isLongClickable());
-        put(Attribute.PASSWORD, uiElementSnapshot.isPassword());
-        put(Attribute.SCROLLABLE, uiElementSnapshot.isScrollable());
-        put(Attribute.SELECTED, uiElementSnapshot.isSelected());
-        put(Attribute.INDEX, uiElementSnapshot.getIndex());
-
-        return selector;
+    public static UiSelector toUiSelector(AccessibilityNodeInfo node) {
+        UiElementSnapshot uiElementSnapshot = UiElementSnapshot.take(node, 0, MATCHING_ATTRIBUTES_SET);
+        return new UiSelectorHelper(new UiSelector(), uiElementSnapshot).selector;
     }
 
-    private void put(Attribute key, Object value) {
+    private void addSearchCriteria(Attribute key, @Nullable Object value) {
         if (value == null) {
             return;
         }
+
         switch (key) {
             case PACKAGE:
                 selector = selector.packageName((String) value);
@@ -67,11 +70,11 @@ public class CustomUiSelector {
             case CLASS:
                 selector = selector.className((String) value);
                 break;
-            case TEXT:
+            case ORIGINAL_TEXT:
                 selector = selector.text((String) value);
                 break;
             case CONTENT_DESC:
-                selector = selector.descriptionContains((String) value);
+                selector = selector.description((String) value);
                 break;
             case RESOURCE_ID:
                 selector = selector.resourceId((String) value);
