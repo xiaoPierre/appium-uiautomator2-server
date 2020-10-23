@@ -16,69 +16,39 @@
 
 package io.appium.uiautomator2.model;
 
-import io.appium.uiautomator2.utils.Device;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import static android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+import static android.content.res.Configuration.ORIENTATION_PORTRAIT;
 
 public enum ScreenOrientation {
-    ROTATION_0, ROTATION_90, ROTATION_180, ROTATION_270;
-
-    public static final String LANDSCAPE = "LANDSCAPE";
-    public static final String PORTRAIT = "PORTRAIT";
-
-    public static ScreenOrientation current() {
-        int rotation = Device.getUiDevice().getDisplayRotation();
-        for (ScreenOrientation val : values()) {
-            if (rotation == val.ordinal()) {
-                return val;
-            }
-        }
-        throw new IllegalArgumentException(
-                String.format("Rotation value %s cannot be translated into a valid screen orientation",
-                        rotation));
-    }
-
-    public static ScreenOrientation ofDegrees(int degrees) {
-        switch (degrees) {
-            case 0:
-                return ROTATION_0;
-            case 90:
-                return ROTATION_90;
-            case 180:
-                return ROTATION_180;
-            case 270:
-                return ROTATION_270;
-            default:
-                throw new IllegalArgumentException(
-                        String.format("Orientation value is not supported for %s degrees. " +
-                                "Only 0, 90, 180 and 270 degrees could be translated into " +
-                                "a valid screen orientation", degrees));
-        }
-    }
+    LANDSCAPE, PORTRAIT;
 
     public static ScreenOrientation ofString(String abbr) {
-        switch (abbr.toUpperCase()) {
-            case LANDSCAPE:
-                return ROTATION_270;
-            case PORTRAIT:
-                return ROTATION_0;
-            default:
-                throw new IllegalArgumentException(
-                        String.format("Orientation value '%s' is not supported. " +
-                                "Only '%s' and '%s' values could be translated into " +
-                                "a valid screen orientation", abbr, LANDSCAPE, PORTRAIT));
+        try {
+            return ScreenOrientation.valueOf(abbr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    String.format("Orientation value '%s' is not supported. " +
+                                    "Only '%s' and '%s' values could be translated into " +
+                                    "a valid screen orientation", abbr, LANDSCAPE.name(), PORTRAIT.name()));
         }
     }
 
-    @Override
-    public String toString() {
-        switch (this) {
-            case ROTATION_0:
-            case ROTATION_180:
+    public static ScreenOrientation current() {
+        int orientation = asInteger();
+        switch (orientation) {
+            case ORIENTATION_PORTRAIT:
                 return PORTRAIT;
-            case ROTATION_90:
-            case ROTATION_270:
+            case ORIENTATION_LANDSCAPE:
                 return LANDSCAPE;
             default:
-                return String.format("UNKNOWN(%s)", ordinal());
+                throw new IllegalStateException("The current screen orientation cannot be retrieved from resources");
         }
+    }
+
+    private static int asInteger() {
+        return InstrumentationRegistry.getInstrumentation()
+                .getContext().getResources().getConfiguration().orientation;
     }
 }
