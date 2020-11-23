@@ -6,7 +6,6 @@ import androidx.test.uiautomator.UiObjectNotFoundException;
 import androidx.test.uiautomator.UiSelector;
 
 import java.util.List;
-import java.util.UUID;
 
 import io.appium.uiautomator2.common.exceptions.ElementNotFoundException;
 import io.appium.uiautomator2.common.exceptions.UiAutomator2Exception;
@@ -18,8 +17,6 @@ import io.appium.uiautomator2.model.AndroidElement;
 import io.appium.uiautomator2.model.AppiumUIA2Driver;
 import io.appium.uiautomator2.model.Session;
 import io.appium.uiautomator2.utils.Logger;
-
-import static io.appium.uiautomator2.utils.Device.getAndroidElement;
 
 /**
  * This method return first visible element inside provided element
@@ -36,10 +33,7 @@ public class FirstVisibleView extends SafeRequestHandler {
         String elementId = getElementId(request);
         Session session = AppiumUIA2Driver.getInstance().getSessionOrThrow();
 
-        AndroidElement element = session.getKnownElements().getElementFromCache(elementId);
-        if (element == null) {
-            throw new ElementNotFoundException();
-        }
+        AndroidElement element = session.getElementsCache().get(elementId);
         Object firstObject = null;
         if (element.getUiObject() instanceof UiObject) {
             UiObject uiObject = (UiObject) element.getUiObject();
@@ -73,9 +67,7 @@ public class FirstVisibleView extends SafeRequestHandler {
             throw new ElementNotFoundException();
         }
 
-        String id = UUID.randomUUID().toString();
-        AndroidElement androidElement = getAndroidElement(id, firstObject, false);
-        session.getKnownElements().add(androidElement);
+        AndroidElement androidElement = session.getElementsCache().add(firstObject, true);
         return new AppiumResponse(getSessionId(request), androidElement.toModel());
     }
 }
