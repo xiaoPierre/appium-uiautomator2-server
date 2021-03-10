@@ -72,13 +72,12 @@ public class AccessibilityNodeInfoDumper {
     @Nullable
     private final AccessibilityNodeInfo root;
     private final SparseArray<UiElement<?, ?>> uiElementsMapping = new SparseArray<>();
-    @Nullable
     private final Set<Attribute> includedAttributes;
     private boolean shouldAddDisplayInfo;
     private XmlSerializer serializer;
 
     public AccessibilityNodeInfoDumper(@Nullable AccessibilityNodeInfo root,
-                                       @Nullable Set<Attribute> includedAttributes) {
+                                       Set<Attribute> includedAttributes) {
         this.root = root;
         this.includedAttributes = includedAttributes;
     }
@@ -224,6 +223,7 @@ public class AccessibilityNodeInfoDumper {
                                     "to workaround the problem.", e.getMessage(),
                     Settings.NORMALIZE_TAG_NAMES.getSetting().getName()), e);
         } catch (Exception e) {
+            e.printStackTrace();
             throw new UiAutomator2Exception(e);
         } finally {
             uiElementsMapping.clear();
