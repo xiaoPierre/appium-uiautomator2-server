@@ -30,9 +30,9 @@ import java.util.List;
 import java.util.Set;
 
 import io.appium.uiautomator2.common.exceptions.InvalidSelectorException;
+import io.appium.uiautomator2.model.AccessibleUiObject;
 import io.appium.uiautomator2.model.AndroidElement;
 import io.appium.uiautomator2.model.By;
-import io.appium.uiautomator2.model.AccessibleUiObject;
 import io.appium.uiautomator2.model.internal.CustomUiDevice;
 
 import static io.appium.uiautomator2.model.AccessibleUiObject.toAccessibleUiObject;

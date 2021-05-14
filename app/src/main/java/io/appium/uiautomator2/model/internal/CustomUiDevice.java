@@ -48,8 +48,8 @@ import static io.appium.uiautomator2.utils.AXWindowHelpers.getCachedWindowRoots;
 import static io.appium.uiautomator2.utils.Device.getUiDevice;
 import static io.appium.uiautomator2.utils.ReflectionUtils.getConstructor;
 import static io.appium.uiautomator2.utils.ReflectionUtils.getField;
-import static io.appium.uiautomator2.utils.ReflectionUtils.invoke;
 import static io.appium.uiautomator2.utils.ReflectionUtils.getMethod;
+import static io.appium.uiautomator2.utils.ReflectionUtils.invoke;
 
 public class CustomUiDevice {
     private static final int CHANGE_ROTATION_TIMEOUT_MS = 2000;
@@ -133,7 +133,7 @@ public class CustomUiDevice {
             node = (AccessibilityNodeInfo) selector;
             selector = toSelector(node);
         } else if (selector instanceof UiSelector) {
-            return AccessibleUiObject.toAccessibleUiObject(getUiDevice().findObject((UiSelector) selector));
+            return toAccessibleUiObject(getUiDevice().findObject((UiSelector) selector));
         } else {
             throw new InvalidSelectorException("Selector of type " + selector.getClass().getName() + " not supported");
         }
@@ -158,11 +158,11 @@ public class CustomUiDevice {
     public List<AccessibleUiObject> findObjects(Object selector) throws UiAutomator2Exception {
         List<AccessibleUiObject> ret = new ArrayList<>();
 
-        List<AccessibilityNodeInfo> axNodesList;
+        final List<AccessibilityNodeInfo> axNodesList;
         if (selector instanceof BySelector) {
-            Object nodes = invoke(METHOD_FIND_MATCHES, ByMatcherClass, getUiDevice(), selector, getCachedWindowRoots());
             //noinspection unchecked
-            axNodesList = (List) nodes;
+            axNodesList = (List<AccessibilityNodeInfo>) invoke(
+                    METHOD_FIND_MATCHES, ByMatcherClass, getUiDevice(), selector, getCachedWindowRoots());
         } else if (selector instanceof NodeInfoList) {
             axNodesList = ((NodeInfoList) selector).getAll();
         } else {

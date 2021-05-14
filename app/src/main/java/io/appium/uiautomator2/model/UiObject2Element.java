@@ -37,6 +37,7 @@ import io.appium.uiautomator2.utils.Logger;
 import io.appium.uiautomator2.utils.PositionHelper;
 
 import static io.appium.uiautomator2.core.AxNodeInfoExtractor.toAxNodeInfo;
+import static io.appium.uiautomator2.model.AccessibleUiObject.toAccessibleUiObject;
 import static io.appium.uiautomator2.model.AccessibleUiObject.toAccessibleUiObjects;
 import static io.appium.uiautomator2.utils.ElementHelpers.generateNoAttributeException;
 
@@ -169,10 +170,10 @@ public class UiObject2Element extends BaseElement {
                 return null;
             }
             UiObject child = ((UiObject) root.getValue()).getChild((UiSelector) selector);
-            return AccessibleUiObject.toAccessibleUiObject(child);
+            return toAccessibleUiObject(child);
         }
         UiObject2 child = element.findObject((BySelector) selector);
-        return AccessibleUiObject.toAccessibleUiObject(child);
+        return toAccessibleUiObject(child);
     }
 
     @Override

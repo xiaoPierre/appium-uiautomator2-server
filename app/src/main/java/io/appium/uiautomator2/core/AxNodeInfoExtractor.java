@@ -26,8 +26,8 @@ import androidx.test.uiautomator.UiObject2;
 
 import io.appium.uiautomator2.common.exceptions.StaleElementReferenceException;
 
-import static io.appium.uiautomator2.utils.ReflectionUtils.invoke;
 import static io.appium.uiautomator2.utils.ReflectionUtils.getMethod;
+import static io.appium.uiautomator2.utils.ReflectionUtils.invoke;
 
 public abstract class AxNodeInfoExtractor {
 

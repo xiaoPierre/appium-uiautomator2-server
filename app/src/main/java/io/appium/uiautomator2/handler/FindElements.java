@@ -34,9 +34,9 @@ import io.appium.uiautomator2.model.Session;
 import io.appium.uiautomator2.model.api.FindElementModel;
 import io.appium.uiautomator2.model.internal.CustomUiDevice;
 import io.appium.uiautomator2.model.internal.ElementsLookupStrategy;
+import io.appium.uiautomator2.utils.ByUiAutomatorFinder;
 import io.appium.uiautomator2.utils.Logger;
 import io.appium.uiautomator2.utils.NodeInfoList;
-import io.appium.uiautomator2.utils.ByUiAutomatorFinder;
 
 import static io.appium.uiautomator2.utils.AXWindowHelpers.refreshAccessibilityCache;
 import static io.appium.uiautomator2.utils.ElementLocationHelpers.getXPathNodeMatch;
