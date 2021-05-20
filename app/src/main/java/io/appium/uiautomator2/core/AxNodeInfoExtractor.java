@@ -26,6 +26,7 @@ import androidx.test.uiautomator.UiObject2;
 
 import io.appium.uiautomator2.common.exceptions.StaleElementReferenceException;
 
+import static io.appium.uiautomator2.utils.ReflectionUtils.getField;
 import static io.appium.uiautomator2.utils.ReflectionUtils.getMethod;
 import static io.appium.uiautomator2.utils.ReflectionUtils.invoke;
 
@@ -34,6 +35,13 @@ public abstract class AxNodeInfoExtractor {
     @Nullable
     public static AccessibilityNodeInfo toNullableAxNodeInfo(Object object) {
         return extractAxNodeInfo(object);
+    }
+
+    @Nullable
+    public static AccessibilityNodeInfo toNullableAxNodeInfo(UiObject2 object, boolean checkStaleness) {
+        return checkStaleness
+                ? extractAxNodeInfo(object)
+                : (AccessibilityNodeInfo) getField("mCachedNode", object);
     }
 
     @NonNull
