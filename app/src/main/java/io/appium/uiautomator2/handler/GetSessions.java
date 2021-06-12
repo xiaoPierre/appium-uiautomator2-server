@@ -19,6 +19,7 @@ package io.appium.uiautomator2.handler;
 import java.util.Collections;
 import java.util.Map;
 
+import io.appium.uiautomator2.handler.request.NoSessionCommandHandler;
 import io.appium.uiautomator2.handler.request.SafeRequestHandler;
 import io.appium.uiautomator2.http.AppiumResponse;
 import io.appium.uiautomator2.http.IHttpRequest;
@@ -28,7 +29,7 @@ import io.appium.uiautomator2.model.api.SessionModel;
 
 import static io.appium.uiautomator2.model.Session.NO_ID;
 
-public class GetSessions extends SafeRequestHandler {
+public class GetSessions extends SafeRequestHandler implements NoSessionCommandHandler {
 
     public GetSessions(String mappedUri) {
         super(mappedUri);
