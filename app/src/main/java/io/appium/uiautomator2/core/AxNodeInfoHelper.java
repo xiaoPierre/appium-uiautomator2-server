@@ -22,7 +22,7 @@ import android.graphics.Point;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.Range;
+import android.util.Pair;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 
@@ -71,17 +71,16 @@ public class AxNodeInfoHelper {
     }
 
     @Nullable
-    public static Range<Integer> getSelectionRange(@Nullable AccessibilityNodeInfo nodeInfo) {
+    public static Pair<Integer, Integer> getSelectionRange(@Nullable AccessibilityNodeInfo nodeInfo) {
         if (nodeInfo == null) {
             return null;
         }
 
         int selectionStart = nodeInfo.getTextSelectionStart();
         int selectionEnd = nodeInfo.getTextSelectionEnd();
-        if (selectionStart >= 0 && selectionStart != selectionEnd) {
-            return new Range<>(selectionStart, selectionEnd);
-        }
-        return null;
+        return selectionStart >= 0 && selectionStart != selectionEnd
+            ? new Pair<>(selectionStart, selectionEnd)
+            : null;
     }
 
     @Nullable
