@@ -170,14 +170,14 @@ public class UiObject2Element extends BaseElement {
                 return null;
             }
             UiObject child = ((UiObject) root.getValue()).getChild((UiSelector) selector);
-            return toAccessibleUiObject(child);
+            return toAccessibleUiObject(child, 0L);
         }
         UiObject2 child = element.findObject((BySelector) selector);
         return toAccessibleUiObject(child);
     }
 
     @Override
-    public List<AccessibleUiObject> getChildren(final Object selector, final By by) throws UiObjectNotFoundException {
+    public List<AccessibleUiObject> getChildren(final Object selector, final By by) {
         if (selector instanceof UiSelector) {
             /*
              * We can't find the child elements with UiSelector on UiObject2,
@@ -195,7 +195,7 @@ public class UiObject2Element extends BaseElement {
             return rootElement.getChildren(selector, by);
         }
         List<UiObject2> children = element.findObjects((BySelector) selector);
-        return toAccessibleUiObjects(children);
+        return toAccessibleUiObjects(children, 0L);
     }
 
     @Override
