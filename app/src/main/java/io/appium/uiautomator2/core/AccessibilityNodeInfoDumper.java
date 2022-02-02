@@ -24,6 +24,7 @@ import android.view.Display;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.apache.commons.io.IOUtils;
@@ -48,6 +49,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 
@@ -57,6 +59,7 @@ import io.appium.uiautomator2.model.NotificationListener;
 import io.appium.uiautomator2.model.UiElement;
 import io.appium.uiautomator2.model.UiElementSnapshot;
 import io.appium.uiautomator2.model.settings.EnforceXpath1;
+import io.appium.uiautomator2.model.settings.LimitXpathContextScope;
 import io.appium.uiautomator2.model.settings.NormalizeTagNames;
 import io.appium.uiautomator2.model.settings.Settings;
 import io.appium.uiautomator2.utils.Attribute;
@@ -96,6 +99,52 @@ public class AccessibilityNodeInfoDumper {
                                        Set<Attribute> includedAttributes) {
         this.root = root;
         this.includedAttributes = includedAttributes;
+    }
+
+    private int matchRootElementIndex() {
+        if (root == null) {
+            throw new RuntimeException(
+                    "Root node search query cannot be built if the root is unset"
+            );
+        }
+        for (int i = 0; i < uiElementsMapping.size(); ++i) {
+            if (Objects.equals(uiElementsMapping.valueAt(i).getNode(), root)) {
+                return uiElementsMapping.keyAt(i);
+            }
+        }
+        throw new RuntimeException("Cannot match the index of the root node");
+    }
+
+    @Nullable
+    private static Node matchRootElement(Node root, final int elementIndex) {
+        if (root instanceof Element
+                && ((Element) root).hasAttribute(UI_ELEMENT_INDEX)
+                && Integer.parseInt(((Element) root).getAttribute(UI_ELEMENT_INDEX)) == elementIndex
+        ) {
+            return root;
+        }
+        if (!root.hasChildNodes()) {
+            return null;
+        }
+        NodeList childNodes = root.getChildNodes();
+        for (int i = 0; i < childNodes.getLength(); ++i) {
+            Node result = matchRootElement(childNodes.item(i), elementIndex);
+            if (result != null) {
+                return result;
+            }
+        }
+        return null;
+    }
+
+    @NonNull
+    private Node fetchContext(InputStream xml) {
+        Document doc = loadDocument(xml);
+        return root == null || Settings.get(LimitXpathContextScope.class).getValue()
+                ? doc
+                : Objects.requireNonNull(
+                    matchRootElement(doc.getDocumentElement(), matchRootElementIndex()),
+                    "Cannot match the root element for the context-based XPath lookup"
+                );
     }
 
     private void addDisplayInfo() throws IOException {
@@ -174,9 +223,12 @@ public class AccessibilityNodeInfoDumper {
             serializer.setOutput(outputStream, XML_ENCODING);
             serializer.startDocument(XML_ENCODING, true);
             serializer.setFeature("http://xmlpull.org/v1/doc/features.html#indent-output", true);
-            final UiElement<?, ?> uiRootElement = root == null
-                    ? UiElementSnapshot.take(getCachedWindowRoots(), NotificationListener.getInstance().getToastMessage(), includedAttributes)
-                    : UiElementSnapshot.take(root, includedAttributes);
+            UiElement<?, ?> uiRootElement = root != null && Settings.get(LimitXpathContextScope.class).getValue()
+                    ? UiElementSnapshot.take(root, includedAttributes)
+                    : UiElementSnapshot.take(
+                        getCachedWindowRoots(), NotificationListener.getInstance().getToastMessage(),
+                        includedAttributes
+                    );
             serializeUiElement(uiRootElement, isIndexed);
             serializer.endDocument();
             Logger.debug(String.format("The source XML tree (%s bytes) has been fetched in %sms",
@@ -227,7 +279,7 @@ public class AccessibilityNodeInfoDumper {
         }
         try (InputStream xmlStream = toStream(true)) {
             NodeList elements = (NodeList) expression.evaluate(
-                    loadDocument(xmlStream), XPathConstants.NODESET
+                    fetchContext(xmlStream), XPathConstants.NODESET
             );
             final NodeInfoList matchedNodes = new NodeInfoList();
             final long timeStarted = SystemClock.uptimeMillis();
@@ -283,8 +335,9 @@ public class AccessibilityNodeInfoDumper {
             throw new UiAutomator2Exception(e);
         }
         try (InputStream xmlStream = toStream(true)) {
-            Document doc = loadDocument(xmlStream);
-            ResultSequence rs = expr.evaluate(new DynamicContextBuilder(scb), new Object[]{doc});
+            ResultSequence rs = expr.evaluate(
+                    new DynamicContextBuilder(scb), new Object[]{fetchContext(xmlStream)}
+            );
             NodeInfoList matchedNodes = new NodeInfoList();
             Iterator<Item> iterator = rs.iterator();
             final long timeStarted = SystemClock.uptimeMillis();
