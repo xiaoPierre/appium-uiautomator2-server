@@ -39,6 +39,7 @@ import io.appium.uiautomator2.handler.FirstVisibleView;
 import io.appium.uiautomator2.handler.Flick;
 import io.appium.uiautomator2.handler.GetAlertText;
 import io.appium.uiautomator2.handler.GetBatteryInfo;
+import io.appium.uiautomator2.handler.GetClipboard;
 import io.appium.uiautomator2.handler.GetDeviceInfo;
 import io.appium.uiautomator2.handler.GetDevicePixelRatio;
 import io.appium.uiautomator2.handler.GetDeviceSize;
@@ -142,6 +143,7 @@ public class AppiumServlet implements IHttpServlet {
         register(postHandler, new UpdateSettings("/session/:sessionId/appium/settings"));
         register(postHandler, new NetworkConnection("/session/:sessionId/network_connection"));
         register(postHandler, new ScrollToElement("/session/:sessionId/appium/element/:id/scroll_to/:id2"));
+        register(postHandler, new GetClipboard("/session/:sessionId/appium/device/get_clipboard"));
         register(postHandler, new SetClipboard("/session/:sessionId/appium/device/set_clipboard"));
         register(postHandler, new AcceptAlert("/session/:sessionId/alert/accept"));
         register(postHandler, new DismissAlert("/session/:sessionId/alert/dismiss"));
