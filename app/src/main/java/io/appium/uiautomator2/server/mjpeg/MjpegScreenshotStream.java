@@ -39,8 +39,6 @@ public class MjpegScreenshotStream extends Thread {
         "Content-Length: %d\r\n\r\n";
     private static final int NO_CLIENTS_CONNECTED_SLEEP_TIME_MS = 500;
     private static final byte[] END = "\r\n\r\n".getBytes(UTF_8);
-    private static final UiAutomation UI_AUTOMATION =
-        CustomUiDevice.getInstance().getInstrumentation().getUiAutomation();
     private final List<MjpegScreenshotClient> clients;
     private boolean isStopped = false;
 
@@ -120,7 +118,7 @@ public class MjpegScreenshotStream extends Thread {
     }
 
     private byte[] getScreenshot() {
-        Bitmap screenshot = UI_AUTOMATION.takeScreenshot();
+        Bitmap screenshot = CustomUiDevice.getInstance().getUiAutomation().takeScreenshot();
         if (screenshot == null) {
             throw new TakeScreenshotException("Could not take screenshot: UiAutomation returned null");
         }
