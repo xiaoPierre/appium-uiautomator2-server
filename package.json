@@ -23,7 +23,8 @@
   },
   "files": [
     "./index.js",
-    "./apks"
+    "./apks",
+    "CHANGELOG.md"
   ],
   "homepage": "https://github.com/appium/appium-uiautomator2-server",
   "scripts": {
@@ -42,6 +43,7 @@
   },
   "devDependencies": {
     "@appium/eslint-config-appium": "^6.0.0",
+    "@semantic-release/changelog": "^6.0.1",
     "@semantic-release/git": "^10.0.1",
     "android-apidemos": "^4.0.0",
     "appium-adb": "^9.0.0",
