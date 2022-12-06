@@ -24,6 +24,7 @@ import android.view.Display;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.apache.commons.io.IOUtils;
@@ -36,8 +37,10 @@ import org.eclipse.wst.xml.xpath2.processor.XPathParserException;
 import org.eclipse.wst.xml.xpath2.processor.util.DynamicContextBuilder;
 import org.eclipse.wst.xml.xpath2.processor.util.StaticContextBuilder;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import org.xmlpull.v1.XmlSerializer;
 
@@ -46,6 +49,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 
@@ -54,6 +58,8 @@ import io.appium.uiautomator2.common.exceptions.UiAutomator2Exception;
 import io.appium.uiautomator2.model.NotificationListener;
 import io.appium.uiautomator2.model.UiElement;
 import io.appium.uiautomator2.model.UiElementSnapshot;
+import io.appium.uiautomator2.model.settings.EnforceXpath1;
+import io.appium.uiautomator2.model.settings.LimitXpathContextScope;
 import io.appium.uiautomator2.model.settings.NormalizeTagNames;
 import io.appium.uiautomator2.model.settings.Settings;
 import io.appium.uiautomator2.utils.Attribute;
@@ -68,6 +74,10 @@ import static net.gcardone.junidecode.Junidecode.unidecode;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpression;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 
 public class AccessibilityNodeInfoDumper {
     private static final String UI_ELEMENT_INDEX = "uiElementIndex";
@@ -76,6 +86,7 @@ public class AccessibilityNodeInfoDumper {
     private static final String DEFAULT_VIEW_CLASS_NAME = View.class.getName();
     private static final String XML_ENCODING = "UTF-8";
     private final Semaphore RESOURCES_GUARD = new Semaphore(1);
+    private static final XPathFactory XPATH_FACTORY = XPathFactory.newInstance();
 
     @Nullable
     private final AccessibilityNodeInfo root;
@@ -88,6 +99,52 @@ public class AccessibilityNodeInfoDumper {
                                        Set<Attribute> includedAttributes) {
         this.root = root;
         this.includedAttributes = includedAttributes;
+    }
+
+    private int matchRootElementIndex() {
+        if (root == null) {
+            throw new RuntimeException(
+                    "Root node search query cannot be built if the root is unset"
+            );
+        }
+        for (int i = 0; i < uiElementsMapping.size(); ++i) {
+            if (Objects.equals(uiElementsMapping.valueAt(i).getNode(), root)) {
+                return uiElementsMapping.keyAt(i);
+            }
+        }
+        throw new RuntimeException("Cannot match the index of the root node");
+    }
+
+    @Nullable
+    private static Node matchRootElement(Node root, final int elementIndex) {
+        if (root instanceof Element
+                && ((Element) root).hasAttribute(UI_ELEMENT_INDEX)
+                && Integer.parseInt(((Element) root).getAttribute(UI_ELEMENT_INDEX)) == elementIndex
+        ) {
+            return root;
+        }
+        if (!root.hasChildNodes()) {
+            return null;
+        }
+        NodeList childNodes = root.getChildNodes();
+        for (int i = 0; i < childNodes.getLength(); ++i) {
+            Node result = matchRootElement(childNodes.item(i), elementIndex);
+            if (result != null) {
+                return result;
+            }
+        }
+        return null;
+    }
+
+    @NonNull
+    private Node fetchContext(InputStream xml) {
+        Document doc = loadDocument(xml);
+        return root == null || Settings.get(LimitXpathContextScope.class).getValue()
+                ? doc
+                : Objects.requireNonNull(
+                    matchRootElement(doc.getDocumentElement(), matchRootElementIndex()),
+                    "Cannot match the root element for the context-based XPath lookup"
+                );
     }
 
     private void addDisplayInfo() throws IOException {
@@ -166,9 +223,12 @@ public class AccessibilityNodeInfoDumper {
             serializer.setOutput(outputStream, XML_ENCODING);
             serializer.startDocument(XML_ENCODING, true);
             serializer.setFeature("http://xmlpull.org/v1/doc/features.html#indent-output", true);
-            final UiElement<?, ?> uiRootElement = root == null
-                    ? UiElementSnapshot.take(getCachedWindowRoots(), NotificationListener.getInstance().getToastMessage(), includedAttributes)
-                    : UiElementSnapshot.take(root, includedAttributes);
+            UiElement<?, ?> uiRootElement = root != null && Settings.get(LimitXpathContextScope.class).getValue()
+                    ? UiElementSnapshot.take(root, includedAttributes)
+                    : UiElementSnapshot.take(
+                        getCachedWindowRoots(), NotificationListener.getInstance().getToastMessage(),
+                        includedAttributes
+                    );
             serializeUiElement(uiRootElement, isIndexed);
             serializer.endDocument();
             Logger.debug(String.format("The source XML tree (%s bytes) has been fetched in %sms",
@@ -204,11 +264,67 @@ public class AccessibilityNodeInfoDumper {
         }
     }
 
-    public NodeInfoList findNodes(String xpathSelector, boolean multiple) {
+    private NodeInfoList findNodesUsingXpath1(String xpath1Selector, boolean multiple) {
+        final XPathExpression expression;
+        try {
+            expression = XPATH_FACTORY.newXPath().compile(xpath1Selector);
+        } catch (XPathExpressionException e) {
+            throw new InvalidSelectorException(e);
+        }
+
+        try {
+            RESOURCES_GUARD.acquire();
+        } catch (InterruptedException e) {
+            throw new UiAutomator2Exception(e);
+        }
+        try (InputStream xmlStream = toStream(true)) {
+            NodeList elements = (NodeList) expression.evaluate(
+                    fetchContext(xmlStream), XPathConstants.NODESET
+            );
+            final NodeInfoList matchedNodes = new NodeInfoList();
+            final long timeStarted = SystemClock.uptimeMillis();
+            for (int i = 0; i < elements.getLength(); ++i) {
+                if (!(elements.item(i) instanceof Element)) {
+                    continue;
+                }
+                Element item = (Element) elements.item(i);
+                if (!item.hasAttribute(UI_ELEMENT_INDEX)) {
+                    continue;
+                }
+                UiElement<?, ?> uiElement = uiElementsMapping.get(
+                        Integer.parseInt(item.getAttribute(UI_ELEMENT_INDEX))
+                );
+                if (uiElement == null || uiElement.getNode() == null) {
+                    continue;
+                }
+
+                matchedNodes.add(uiElement.getNode());
+                if (!multiple) {
+                    break;
+                }
+            }
+            Logger.info(String.format("Took %sms to retrieve %s matches for '%s' XPath1 query",
+                    SystemClock.uptimeMillis() - timeStarted, matchedNodes.size(), xpath1Selector));
+            return matchedNodes;
+        } catch (XPathExpressionException | IllegalArgumentException e) {
+            throw new UiAutomator2Exception(
+                    String.format("%s. Try changing the '%s' driver setting to 'true' in order " +
+                                    "to workaround the problem.", e.getMessage(),
+                            Settings.NORMALIZE_TAG_NAMES.getSetting().getName()), e);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new UiAutomator2Exception(e);
+        } finally {
+            uiElementsMapping.clear();
+            RESOURCES_GUARD.release();
+        }
+    }
+
+    private NodeInfoList findNodesUsingXpath2(String xpath2Selector, boolean multiple) {
         StaticContextBuilder scb = new StaticContextBuilder();
         final XPath2Expression expr;
         try {
-            expr = new Engine().parseExpression(xpathSelector, scb);
+            expr = new Engine().parseExpression(xpath2Selector, scb);
         } catch (XPathParserException e) {
             throw new InvalidSelectorException(e);
         }
@@ -219,8 +335,9 @@ public class AccessibilityNodeInfoDumper {
             throw new UiAutomator2Exception(e);
         }
         try (InputStream xmlStream = toStream(true)) {
-            Document doc = loadDocument(xmlStream);
-            ResultSequence rs = expr.evaluate(new DynamicContextBuilder(scb), new Object[] { doc });
+            ResultSequence rs = expr.evaluate(
+                    new DynamicContextBuilder(scb), new Object[]{fetchContext(xmlStream)}
+            );
             NodeInfoList matchedNodes = new NodeInfoList();
             Iterator<Item> iterator = rs.iterator();
             final long timeStarted = SystemClock.uptimeMillis();
@@ -240,7 +357,8 @@ public class AccessibilityNodeInfoDumper {
                     continue;
                 }
                 UiElement<?, ?> uiElement = uiElementsMapping.get(
-                        Integer.parseInt(uiElementIndexAttr.getNodeValue()));
+                        Integer.parseInt(uiElementIndexAttr.getNodeValue())
+                );
                 if (uiElement == null || uiElement.getNode() == null) {
                     continue;
                 }
@@ -249,15 +367,24 @@ public class AccessibilityNodeInfoDumper {
                     break;
                 }
             }
-            Logger.info(String.format("Took %sms to retrieve %s matches for '%s' XPath query",
-                    SystemClock.uptimeMillis() - timeStarted, matchedNodes.size(), xpathSelector));
+            Logger.info(String.format("Took %sms to retrieve %s matches for '%s' XPath2 query",
+                    SystemClock.uptimeMillis() - timeStarted, matchedNodes.size(), xpath2Selector));
             return matchedNodes;
         } catch (Exception e) {
             e.printStackTrace();
-            throw new UiAutomator2Exception(e);
+            throw new UiAutomator2Exception(
+                    String.format("%s. Try changing the '%s' driver setting to 'true' in order " +
+                                    "to workaround the problem.", e.getMessage(),
+                            Settings.ENFORCE_XPATH1.getSetting().getName()), e);
         } finally {
             uiElementsMapping.clear();
             RESOURCES_GUARD.release();
         }
+    }
+
+    public NodeInfoList findNodes(String xpathSelector, boolean multiple) {
+        return Settings.get(EnforceXpath1.class).getValue()
+                ? findNodesUsingXpath1(xpathSelector, multiple)
+                : findNodesUsingXpath2(xpathSelector, multiple);
     }
 }

@@ -14,16 +14,12 @@
  * limitations under the License.
  */
 
-package io.appium.uiautomator2.common.exceptions;
+package io.appium.uiautomator2.model.api.gestures;
 
-import java.util.Arrays;
+import io.appium.uiautomator2.model.api.BaseModel;
+import io.appium.uiautomator2.model.api.ElementModel;
 
-public class UnsupportedSettingException extends InvalidArgumentException {
-
-    public UnsupportedSettingException(String settingName, String[] supportedSettingNames) {
-        super(String.format("Setting '%s' is not supported. " +
-                "Only the following settings are supported: %s", settingName,
-                Arrays.toString(supportedSettingNames)));
-    }
-
+public class ClickModel extends BaseModel {
+    public ElementModel origin;
+    public PointModel offset;
 }

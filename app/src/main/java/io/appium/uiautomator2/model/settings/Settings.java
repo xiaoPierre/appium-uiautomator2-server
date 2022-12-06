@@ -16,9 +16,6 @@
 
 package io.appium.uiautomator2.model.settings;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public enum Settings {
     ACTION_ACKNOWLEDGMENT_TIMEOUT(new ActionAcknowledgmentTimeout()),
     ALLOW_INVISIBLE_ELEMENTS(new AllowInvisibleElements()),
@@ -32,6 +29,10 @@ public enum Settings {
     WAIT_FOR_IDLE_TIMEOUT(new WaitForIdleTimeout()),
     WAIT_FOR_SELECTOR_TIMEOUT(new WaitForSelectorTimeout()),
     NORMALIZE_TAG_NAMES(new NormalizeTagNames()),
+    ENFORCE_XPATH1(new EnforceXpath1()),
+    DISABLE_IDS_AUTOCOMPLETION(new DisableIdLocatorAutocompletion()),
+    LIMIT_XPATH_CONTEXT_SCOPE(new LimitXpathContextScope()),
+    INCLUDE_EXTRAS_IN_PAGE_SOURCE(new IncludeExtrasInPageSource()),
     SHUTDOWN_ON_POWER_DISCONNECT(new ShutdownOnPowerDisconnect()),
     SIMPLE_BOUNDS_CALCULATION(new SimpleBoundsCalculation()),
     TRACK_SCROLL_EVENTS(new TrackScrollEvents()),
@@ -64,16 +65,16 @@ public enum Settings {
                 settingType.getCanonicalName()));
     }
 
+    public static void resetForNewSession() {
+        for (Settings enumItem: values()) {
+            if (enumItem.getSetting().isTiedToSession()) {
+                enumItem.getSetting().reset();
+            }
+        }
+    }
+
     @Override
     public String toString() {
         return setting.getName();
-    }
-
-    public static String[] names() {
-        final List<String> result = new ArrayList<>();
-        for (Settings item : Settings.values()) {
-            result.add(item.getSetting().getName());
-        }
-        return result.toArray(new String[0]);
     }
 }
